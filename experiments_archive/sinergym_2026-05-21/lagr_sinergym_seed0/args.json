@@ -1,0 +1,12 @@
+{
+  "algo": "lagrangian",
+  "env": "sinergym",
+  "seed": 0,
+  "total_steps": 500000,
+  "n_envs": 16,
+  "penalty": 5.0,
+  "cost_limit": null,
+  "run_name": "lagr_sinergym_seed0",
+  "log_dir": "logs",
+  "result_dir": "results"
+}

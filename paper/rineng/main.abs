@@ -1,0 +1,25 @@
+Museum HVAC systems run year-round at energy intensities two to three
+times those of office buildings, because conservation envelopes require
+narrow-band control of temperature and relative humidity. Existing
+controllers either treat conservation limits as soft reward penalties,
+conflicting with the safety semantics of EN~15757 and ASHRAE Class~A1,
+or use classical multi-objective optimization that cannot adapt to
+time-varying loads. We formulate museum HVAC control as a Constrained
+Markov Decision Process that aggregates ASHRAE static envelopes and the
+EN~15757 dynamic rate caps on $|\mathrm{d}T/\mathrm{d}t|$ and
+$|\mathrm{d}\mathrm{RH}/\mathrm{d}t|$ into a scalar cost, and solve it
+with a Lagrangian Proximal Policy Optimization controller whose
+multiplier is updated by a PID loop. We also document an implementation
+pitfall in subprocess-based vectorized training: the multiplier must be
+pushed to workers via the \texttt{set\_attr} mechanism. On a five-zone
+simulator, a six-budget Pareto sweep shows annual energy varying by only
+$0.4\%$ while the year-total conservation cost varies by a factor of
+$2.5$; at the strictest budget the controller cuts conservation cost by
+$85\%$ and violation steps by $41\%$ versus a fixed $22\,^\circ$C$/50\%$RH
+baseline, at a $1\%$ energy overhead, with residual violations confined
+to a single constraint-coupled zone. We then stress-test these
+conclusions on a high-fidelity EnergyPlus model extended with per-zone
+thermostats and active humidification. The localization finding
+transfers, but the performance advantage does not: there a tuned fixed
+setpoint outperforms the constrained controller, because the energy
+gradient overwhelms the constraint signal. We release the testbed.

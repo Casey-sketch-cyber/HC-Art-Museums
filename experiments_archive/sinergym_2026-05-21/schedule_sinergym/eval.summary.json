@@ -1,0 +1,14 @@
+{
+  "controller": "schedule_sinergym",
+  "total_energy_kwh": 16998.976117843627,
+  "mean_pmv": -0.27650677105457816,
+  "comfort_violations": 11200,
+  "conservation_cost_mean": 2.320476456986715,
+  "conservation_cost_total": 81309.49505281448,
+  "violation_steps": 27864,
+  "violation_steps_oil_painting_gallery": 27864,
+  "violation_steps_paper_works_gallery": 0,
+  "violation_steps_bronze_storage": 0,
+  "violation_steps_mixed_gallery": 0,
+  "violation_steps_public_lobby": 0
+}

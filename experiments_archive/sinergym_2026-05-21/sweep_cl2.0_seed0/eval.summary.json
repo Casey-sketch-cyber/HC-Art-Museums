@@ -1,0 +1,14 @@
+{
+  "controller": "sweep_cl2.0_seed0",
+  "total_energy_kwh": 11439.765473968506,
+  "mean_pmv": -0.31451379625165843,
+  "comfort_violations": 11916,
+  "conservation_cost_mean": 2.283394054664324,
+  "conservation_cost_total": 80010.12767543792,
+  "violation_steps": 27928,
+  "violation_steps_oil_painting_gallery": 27928,
+  "violation_steps_paper_works_gallery": 0,
+  "violation_steps_bronze_storage": 0,
+  "violation_steps_mixed_gallery": 0,
+  "violation_steps_public_lobby": 0
+}

@@ -1,0 +1,615 @@
+% ===========================================================================
+% References for the museum Safe-RL HVAC paper.
+% Verified entries; placeholder DOIs may be filled in during final formatting.
+% Order: foundational standards & theory first, then museum HVAC, Safe RL,
+% RL for HVAC, multi-agent RL, transfer learning, digital twins, heritage
+% IoT, forecasting, tooling.
+% ===========================================================================
+
+% ---------------------------- Standards (timeless) -------------------------
+
+@manual{en15757,
+  author       = {{European Committee for Standardization}},
+  title        = {{EN 15757:2010} Conservation of Cultural Property -
+                  Specifications for temperature and relative humidity to
+                  limit climate-induced mechanical damage in organic
+                  hygroscopic materials},
+  year         = {2010},
+}
+
+@manual{ashrae_handbook_ch24,
+  author       = {{ASHRAE}},
+  title        = {{ASHRAE} Handbook -- {HVAC} Applications, Chapter~24:
+                  Museums, Galleries, Archives, and Libraries},
+  year         = {2023},
+}
+
+@manual{ashrae_guideline14,
+  author       = {{ASHRAE}},
+  title        = {{ASHRAE} Guideline 14-2014: Measurement of Energy,
+                  Demand, and Water Savings},
+  year         = {2014},
+}
+
+@manual{en167982020,
+  author       = {{European Committee for Standardization}},
+  title        = {{EN 16798-1:2019} Energy performance of buildings ---
+                  Ventilation for buildings --- Part 1: Indoor environmental
+                  input parameters for design and assessment of energy
+                  performance of buildings addressing indoor air quality,
+                  thermal environment, lighting and acoustics},
+  year         = {2019},
+}
+
+@manual{ashrae552020,
+  author       = {{ASHRAE}},
+  title        = {{ANSI/ASHRAE} Standard 55-2020: Thermal Environmental
+                  Conditions for Human Occupancy},
+  year         = {2020},
+}
+
+@manual{en16893,
+  author       = {{European Committee for Standardization}},
+  title        = {{EN 16893:2018} Conservation of Cultural Heritage ---
+                  Specifications for location, construction and modification
+                  of buildings or rooms intended for the storage or use of
+                  heritage collections},
+  year         = {2018},
+}
+
+% ---------------------------- Foundational theory -------------------------
+
+@book{altman1999constrained,
+  author    = {Altman, Eitan},
+  title     = {Constrained {M}arkov Decision Processes},
+  publisher = {Chapman \& Hall/CRC},
+  year      = {1999},
+}
+
+@inproceedings{achiam2017cpo,
+  author    = {Achiam, Joshua and Held, David and Tamar, Aviv and Abbeel, Pieter},
+  title     = {Constrained policy optimization},
+  booktitle = {Proceedings of the 34th International Conference on Machine
+               Learning ({ICML})},
+  pages     = {22--31},
+  year      = {2017},
+}
+
+@article{schulman2017ppo,
+  author  = {Schulman, John and Wolski, Filip and Dhariwal, Prafulla and
+             Radford, Alec and Klimov, Oleg},
+  title   = {Proximal Policy Optimization Algorithms},
+  journal = {arXiv preprint arXiv:1707.06347},
+  year    = {2017},
+}
+
+@inproceedings{stooke2020responsive,
+  author    = {Stooke, Adam and Achiam, Joshua and Abbeel, Pieter},
+  title     = {Responsive safety in reinforcement learning by {PID}
+               {L}agrangian methods},
+  booktitle = {Proceedings of the 37th International Conference on Machine
+               Learning ({ICML})},
+  pages     = {9133--9143},
+  year      = {2020},
+}
+
+@article{schulman2015gae,
+  author  = {Schulman, John and Moritz, Philipp and Levine, Sergey and
+             Jordan, Michael and Abbeel, Pieter},
+  title   = {High-dimensional Continuous Control Using Generalized
+             Advantage Estimation},
+  journal = {arXiv preprint arXiv:1506.02438},
+  year    = {2015},
+}
+
+% ---------------------------- Museum HVAC optimization --------------------
+
+@article{ascione2018museum,
+  author  = {Ascione, Fabrizio and Bianco, Nicola and Iovane, Teresa and
+             Mauro, Gerardo Maria and Vanoli, Giuseppe Peter},
+  title   = {Multi-objective optimization of microclimate in museums for
+             concurrent reduction of energy needs, visitors' discomfort and
+             artwork preservation risks},
+  journal = {Applied Energy},
+  volume  = {224},
+  pages   = {147--159},
+  year    = {2018},
+  doi     = {10.1016/j.apenergy.2018.04.087},
+}
+
+@article{schito2020museum,
+  author  = {Schito, Eva and Conti, Paolo and Urbanucci, Luca and Testi, Daniele},
+  title   = {Multi-objective optimization of {HVAC} control in museum
+             environment for artwork preservation, visitors' thermal comfort
+             and energy efficiency},
+  journal = {Building and Environment},
+  volume  = {180},
+  pages   = {107018},
+  year    = {2020},
+  doi     = {10.1016/j.buildenv.2020.107018},
+}
+
+@article{verticchio2024microclimate,
+  author  = {Verticchio, E. and Frasca, F. and others},
+  title   = {Microclimate thresholds for conservation in museum environments:
+             a parametric energy study},
+  journal = {Scientific Reports},
+  volume  = {14},
+  pages   = {1--14},
+  year    = {2024},
+}
+
+@article{boesgaard2022heritage,
+  author  = {Boesgaard, Caroline and Hansen, Brad J. and Brejnholt, Sara M.},
+  title   = {Prediction of the indoor climate in cultural heritage buildings
+             through machine learning: first results from two field tests},
+  journal = {Heritage Science},
+  volume  = {10},
+  pages   = {176},
+  year    = {2022},
+  doi     = {10.1186/s40494-022-00805-3},
+}
+
+@article{coelho2020museum,
+  author  = {Coelho, G. B. A. and Silva, H. E. and Henriques, F. M. A.},
+  title   = {Development of a three-dimensional hygrothermal model and
+             decision support system for cultural heritage preservation},
+  journal = {Journal of Cultural Heritage},
+  volume  = {46},
+  pages   = {30--40},
+  year    = {2020},
+}
+
+@article{green_smart_museums_2025,
+  author  = {Bi, Ran and Song, Chenchen and Zhang, Yue},
+  title   = {Green Smart Museums Driven by {AI} and Digital Twin: Concepts,
+             System Architecture, and Case Studies},
+  journal = {Smart Cities},
+  volume  = {8},
+  number  = {5},
+  pages   = {140},
+  year    = {2025},
+  doi     = {10.3390/smartcities8050140},
+}
+
+@article{mudejar2024adaptive,
+  author  = {Pavón-Quintana, Ascensión and Sánchez-Pereyra, Andrés and
+             Toledano-Ortiz, Pablo and Acosta-García, Isabel},
+  title   = {Use of International Adaptive Thermal Comfort Models as a
+             Strategy for Adjusting the Museum Environments of the Mudejar
+             Pavilion, Seville},
+  journal = {Energies},
+  volume  = {17},
+  number  = {21},
+  pages   = {5480},
+  year    = {2024},
+  doi     = {10.3390/en17215480},
+}
+
+@article{greek_museum_2024,
+  author  = {Karasiopoulou, Vasiliki and Theodosiou, Theodoros and
+             Tsikaloudaki, Aikaterini},
+  title   = {Microclimate-Monitoring: Examining the Indoor Environment of
+             {G}reek Museums and Historical Buildings in the Face of Climate
+             Change},
+  journal = {Heritage},
+  volume  = {7},
+  number  = {3},
+  pages   = {1278--1297},
+  year    = {2024},
+  doi     = {10.3390/heritage7030067},
+}
+
+@article{museum_no_hvac_2025,
+  author  = {Frasca, F. and Verticchio, E. and Bertolin, C. and
+             Siani, A. M.},
+  title   = {Temporary monitoring of the microclimate in a museum without
+             climate control and its implications in the preventive
+             conservation of collections},
+  journal = {Building and Environment},
+  volume  = {280},
+  pages   = {113053},
+  year    = {2025},
+}
+
+@article{membrane_dehumid_museum_2025,
+  author  = {Liu, Sen and Cao, Tianshu and others},
+  title   = {Multi-objective optimization of membrane-based dehumidification
+             system for sustainable museum microclimates},
+  journal = {Building and Environment},
+  year    = {2025},
+}
+
+@article{coherence_heritage_2025,
+  author  = {Cuevas, A. and others},
+  title   = {Coherence Analysis for Vibration Monitoring Under High
+             Variability Conditions: Constraints for Cultural Heritage
+             Preventive Conservation},
+  journal = {Journal of Sensor and Actuator Networks},
+  volume  = {14},
+  number  = {2},
+  pages   = {45},
+  year    = {2025},
+  doi     = {10.3390/jsan14020045},
+}
+
+% ---------------------------- Safe RL theory and tools --------------------
+
+@article{ji2023safety,
+  author  = {Ji, Jiaming and Zhang, Borong and Zhou, Jiayi and others},
+  title   = {Safety Gymnasium: A Unified Safe Reinforcement Learning
+             Benchmark},
+  journal = {Advances in Neural Information Processing Systems},
+  year    = {2023},
+}
+
+@article{ji2023omnisafe,
+  author  = {Ji, Jiaming and Zhou, Jiayi and Zhang, Borong and others},
+  title   = {{OmniSafe}: An Infrastructure for Accelerating Safe
+             Reinforcement Learning Research},
+  journal = {Journal of Machine Learning Research},
+  year    = {2024},
+  note    = {arXiv:2305.09304},
+}
+
+@article{lagrangian_empirical_2025,
+  author  = {Spoor, Lindsay and Serra-G{\'o}mez, {\'A}lvaro and Plaat, Aske and Moerland, Thomas},
+  title   = {An Empirical Study of {L}agrangian Methods in Safe
+             Reinforcement Learning},
+  journal = {arXiv preprint arXiv:2510.17564},
+  year    = {2025},
+  title   = {Towards a Practical Understanding of {L}agrangian Methods in Safe Reinforcement Learning},
+}
+
+@article{constraint_formulations_2024,
+  author  = {Wachi, Akifumi and Shen, Xun and Sui, Yanan},
+  title   = {A Survey of Constraint Formulations in Safe Reinforcement
+             Learning},
+  booktitle = {Proceedings of the 33rd International Joint Conference on
+               Artificial Intelligence ({IJCAI})},
+  pages   = {8262--8270},
+  year    = {2024},
+}
+
+@article{safe_rl_buildings_mdpi_2025,
+  author  = {Esmaeili, Mohammad Hassan and Hammes, Sascha and Tosatto, Samuele and Geisler-Moroder, David and Zech, Philipp},
+  title   = {Safe Reinforcement Learning for Buildings: Minimizing Energy
+             Use While Maximizing Occupant Comfort},
+  journal = {Energies},
+  volume  = {18},
+  number  = {19},
+  pages   = {5313},
+  year    = {2025},
+  doi     = {10.3390/en18195313},
+}
+
+@article{safe_mbrl_hvac_2024,
+  author  = {Ding, Xianzhong and An, Zhiyu and Rathee, Arya and Du, Wan},
+  title   = {A Safe and Data-efficient Model-based Reinforcement Learning
+             System for {HVAC} Control},
+  journal = {arXiv preprint arXiv:2407.12195},
+  year    = {2024},
+}
+
+@article{constrained_heatpump_2024,
+  author  = {Zhang, Baohe and Frison, Lilli and Brox, Thomas and B{\"o}decker, Joschka},
+  title   = {Constrained Reinforcement Learning for Safe Heat Pump Control},
+  journal = {arXiv preprint arXiv:2409.19716},
+  year    = {2024},
+}
+
+@article{safe_drl_heating_2026,
+  author  = {J{\"u}ni, Colin and Montazeri, Mina and Guo, Yi and Bellizio, Federica and Sansavini, Giovanni and Heer, Philipp},
+  title   = {Safe Deep Reinforcement Learning for Building Heating Control
+             and Demand-side Flexibility},
+  journal = {arXiv preprint arXiv:2604.16033},
+  year    = {2026},
+}
+
+% ---------------------------- RL for HVAC (recent) ------------------------
+
+@article{wang2017drlhvac,
+  author  = {Wang, Yu and Velswamy, K. and Huang, Biao},
+  title   = {A long-short term memory recurrent neural network based
+             reinforcement learning controller for office heating
+             ventilation and air conditioning systems},
+  journal = {Processes},
+  volume  = {5},
+  number  = {3},
+  pages   = {46},
+  year    = {2017},
+}
+
+@article{brandi2022online,
+  author  = {Brandi, Silvio and Piscitelli, Marco Savino and Martellacci,
+             Marco and Capozzoli, Alfonso},
+  title   = {Deep reinforcement learning to optimise indoor temperature
+             control and heating energy consumption in buildings},
+  journal = {Energy and Buildings},
+  volume  = {224},
+  pages   = {110225},
+  year    = {2020},
+}
+
+@article{efficient_assured_2025,
+  author  = {Xu, Shichao and Fu, Yangyang and Wang, Yixuan and Yang, Zhuoran and Huang, Chao and O'Neill, Zheng and Wang, Zhaoran and Zhu, Qi},
+  title   = {Efficient and assured reinforcement learning-based building
+             {HVAC} control with heterogeneous expert-guided training},
+  journal = {Scientific Reports},
+  volume  = {15},
+  pages   = {1--16},
+  year    = {2025},
+  doi     = {10.1038/s41598-025-91326-z},
+}
+
+@article{drl_co_optimize_2024,
+  author  = {Guo, Fangzhou and Ham, Sang Woo and Kim, Donghun and Moon, Hyeun Jun},
+  title   = {Deep reinforcement learning control for co-optimizing energy
+             consumption, thermal comfort, and indoor air quality in an
+             office building},
+  journal = {Applied Energy},
+  volume  = {377},
+  pages   = {124467},
+  year    = {2024},
+  doi     = {10.1016/j.apenergy.2024.124467},
+}
+
+@article{drl_g36_2025,
+  author  = {Savino, Sabrina and Razzano, Giuseppe and Pagone, Michele and Novara, Carlo and Capozzoli, Alfonso},
+  title   = {Deploying deep reinforcement learning for low-level {HVAC}
+             control in multi-zone buildings: A comparative study with
+             {ASHRAE} {G}36 sequences},
+  journal = {Energy and Buildings},
+  volume  = {348},
+  pages   = {116456},
+  year    = {2025},
+  doi     = {10.1016/j.enbuild.2025.116456},
+}
+
+@article{rl_urban_climate_2025,
+  author  = {Yu, Junjie and Schreck, John S. and Gagne, David John and Oleson, Keith W. and Li, Jie and Liang, Yongtu and Liao, Qi and Sun, Mingfei and Topping, David O. and Zheng, Zhonghua},
+  title   = {Reinforcement Learning ({RL}) Meets Urban Climate Modeling:
+             Investigating the Efficacy and Impacts of {RL}-Based {HVAC}
+             Control},
+  journal = {arXiv preprint arXiv:2505.07045},
+  year    = {2025},
+}
+
+@article{boptest_rl_2025,
+  author  = {Boutahri, Youssef and Tilioua, Amine},
+  title   = {Reinforcement learning for {HVAC} control and energy efficiency
+             in residential buildings with {BOPTEST} simulations and real-case
+             validation},
+  journal = {Discover Computing},
+  volume  = {28},
+  year    = {2025},
+  doi     = {10.1007/s10791-025-09544-y},
+}
+
+@article{continual_rl_hvac_2025,
+  author  = {Bekal, Gautham Udayakumar and Ghareeb, Ahmed and Pujari, Ashish},
+  title   = {Continual Reinforcement Learning for {HVAC} Systems Control:
+             Integrating Hypernetworks and Transfer Learning},
+  journal = {arXiv preprint arXiv:2503.19212},
+  year    = {2025},
+}
+
+@article{llm_rl_decarb_2026,
+  author  = {Zhong, Dianyu and Xing, Tian and Sun, Kailai and Yang, Xu and Huang, Heye and Qaisar, Irfan and Jia, Tinggang and Wang, Shaobo and Zhao, Qianchuan},
+  title   = {Hierarchical Control Framework Integrating Large Language
+             Models with Reinforcement Learning for Decarbonized {HVAC}
+             Operation},
+  journal = {arXiv preprint arXiv:2603.26050},
+  year    = {2026},
+}
+
+% ---------------------------- Multi-agent / multi-zone RL -----------------
+
+@article{marl_zone_alloc_2025,
+  author  = {Xue, Wenping and Jia, Ning and Zhao, Mengtao},
+  title   = {Multi-agent deep reinforcement learning based {HVAC} control
+             for multi-zone buildings considering zone-energy-allocation
+             optimization},
+  journal = {Energy and Buildings},
+  volume  = {327},
+  pages   = {115304},
+  year    = {2025},
+}
+
+@article{marl_electrochromic_2025,
+  author  = {Chen, Hongjian and Sun, Duoyu and Sun, Yuyu and Zhang, Yong and Yang, Huan},
+  title   = {Multi-Agent Deep Reinforcement Learning-Based {HVAC} and
+             Electrochromic Window Control Framework},
+  journal = {Buildings},
+  volume  = {15},
+  number  = {17},
+  pages   = {3114},
+  year    = {2025},
+  doi     = {10.3390/buildings15173114},
+}
+
+@article{marl_demand_response_2025,
+  author  = {Zhang, Yiwen and Zhao, Yang and Zhang, Chaobo and Feng, Chenxin},
+  title   = {Multi-agent reinforcement learning-based method for demand
+             response of building {HVAC} systems},
+  journal = {Journal of Building Engineering},
+  year    = {2025},
+  volume  = {108},
+  pages   = {112734},
+  doi     = {10.1016/j.jobe.2025.112734},
+}
+
+@article{drl_setpoint_multizone_2022,
+  author  = {Yu, Liang and others},
+  title   = {Deep reinforcement learning optimal control strategy for
+             temperature setpoint real-time reset in multi-zone building
+             {HVAC} system},
+  journal = {Applied Thermal Engineering},
+  volume  = {212},
+  pages   = {118552},
+  year    = {2022},
+}
+
+% ---------------------------- Building energy: digital twins / decarb -----
+
+@article{dt_buildings_2025,
+  author  = {Sghiri, Amina and Gallab, Maryam and Merzouk, Safae and Assoul, Saliha},
+  title   = {Leveraging Digital Twins for Enhancing Building Energy
+             Efficiency: A Literature Review of Applications, Technologies,
+             and Challenges},
+  journal = {Buildings},
+  volume  = {15},
+  number  = {3},
+  pages   = {498},
+  year    = {2025},
+  doi     = {10.3390/buildings15030498},
+}
+
+@article{dt_ieq_review_2025,
+  author  = {Venkateswarlu, Natakarani and Sathiyamoorthy, Mahenthiran},
+  title   = {Sustainable innovations in digital twin technology: a
+             systematic review about energy efficiency and indoor
+             environment quality in built environment},
+  journal = {Frontiers in Built Environment},
+  volume  = {11},
+  pages   = {1523464},
+  year    = {2025},
+  doi     = {10.3389/fbuil.2025.1523464},
+}
+
+@article{ai_hvac_zeb_2025,
+  author  = {Gassar, Abdo Abdullah Ahmed and Jafar, Raed},
+  title   = {Artificial Intelligence-Enabled Heating, Ventilation, and Air
+             Conditioning Systems Toward Zero-Emission Buildings: A
+             Systematic Review of Applications, Challenges, and Future
+             Directions},
+  journal = {Applied Sciences},
+  volume  = {15},
+  number  = {19},
+  pages   = {10497},
+  year    = {2025},
+  doi     = {10.3390/app151910497},
+}
+
+@article{drgona2020mpc_review,
+  author  = {Drgo{\v n}a, J{\'a}n and Arroyo, Javier and others},
+  title   = {All you need to know about model predictive control for
+             buildings},
+  journal = {Annual Reviews in Control},
+  volume  = {50},
+  pages   = {190--232},
+  year    = {2020},
+}
+
+% ---------------------------- Heritage IoT / cultural sites ---------------
+
+@article{iot_low_budget_museum_2022,
+  author  = {Laborda, Jaime and Garc{\'{\i}}a-Castillo, Ana Mar{\'{\i}}a and Mercado, Ricardo and Peir{\'o}-Vitoria, Andrea and Perles, {\'A}ngel},
+  title   = {From concept to validation of a wireless environmental sensor
+             for the integral application of preventive conservation
+             methodologies in low-budget museums},
+  journal = {Heritage Science},
+  volume  = {10},
+  pages   = {1--17},
+  year    = {2022},
+  doi     = {10.1186/s40494-022-00837-9},
+}
+
+@article{iot_modular_heritage_2025,
+  author  = {Palomeque-Gonzalez, Juan},
+  title   = {A Modular, Low-Cost {IoT} System for Environmental and
+             Behavioural Monitoring in Cultural Heritage Sites},
+  journal = {arXiv preprint arXiv:2508.00849},
+  year    = {2025},
+}
+
+@article{iot_microclimate_heritage_2024,
+  author  = {Bucciero, Alberto and Chirivi, Alessandra and Colella, Riccardo and Emara, Mohamed and Greco, Matteo and Jaziri, Mohamed Ali and Muci, Irene and Pandurino, Andrea and Taurino, Francesco Valentino and Zecca, Davide},
+  title   = {{IoT}-Based Platform for Wireless Microclimate Monitoring in
+             Cultural Heritage},
+  journal = {Heritage},
+  volume  = {9},
+  number  = {2},
+  pages   = {57},
+  year    = {2024},
+  doi     = {10.3390/heritage9020057},
+}
+
+% ---------------------------- Forecasting (LSTM/Transformer) --------------
+
+@article{hybrid_lstm_transformer_load_2026,
+  author  = {Liu, Hongli and Wei, Yang and Zhang, Han and Wang, Yang and Zhang, Jie and Luo, Zhongqiang},
+  title   = {A hybrid {LSTM}-transformer model for short-term urban
+             electricity load forecasting: a two-city case study},
+  journal = {Scientific Reports},
+  volume  = {16},
+  year    = {2026},
+  doi     = {10.1038/s41598-026-47905-9},
+}
+
+@article{lstm_transformer_power_2025,
+  author  = {Pentsos, Vasileios and Tragoudas, Spyros and Wibbenmeyer, Jason and Khdeer, Nasser},
+  title   = {A Hybrid {LSTM}-Transformer Model for Power Load Forecasting},
+  journal = {IEEE Transactions on Smart Grid},
+  year    = {2025},
+  volume  = {16},
+  pages   = {2624--2634},
+  doi     = {10.1109/TSG.2025.3535407},
+}
+
+@article{load_forecast_households_2025,
+  author  = {Moosbrugger, Lukas and Seiler, Valentin and Wohlgenannt, Philipp and Hegenbart, Sebastian and Ristov, Sashko and Eder, Elias and Kepplinger, Peter},
+  title   = {Load Forecasting for Households and Energy Communities: Are Deep Learning Models Worth the Effort?},
+  journal = {arXiv preprint arXiv:2501.05000},
+  year    = {2025},
+}
+
+% ---------------------------- Tooling / simulators ------------------------
+
+@article{manjavacas2024sinergym,
+  author  = {Manjavacas, Antonio and Campoy-Nieves, Alejandro and
+             Jim{\'e}nez-Raboso, Javier and Molina-Solana, Miguel and
+             G{\'o}mez-Romero, Juan},
+  title   = {Sinergym -- A virtual testbed for building energy optimization
+             with Reinforcement Learning},
+  journal = {Energy and Buildings},
+  year    = {2025},
+  doi     = {10.1016/j.enbuild.2024.114907},
+}
+
+@article{raffin2021sb3,
+  author  = {Raffin, Antonin and Hill, Ashley and Gleave, Adam and
+             Kanervisto, Anssi and Ernestus, Maximilian and Dormann, Noah},
+  title   = {Stable-Baselines3: Reliable Reinforcement Learning
+             Implementations},
+  journal = {Journal of Machine Learning Research},
+  volume  = {22},
+  number  = {268},
+  pages   = {1--8},
+  year    = {2021},
+}
+
+@manual{energyplus,
+  author       = {{U.S. Department of Energy}},
+  title        = {{EnergyPlus} Engineering Reference: The Reference to
+                  {EnergyPlus} Calculations},
+  year         = {2024},
+  note         = {Version 23.2.0},
+}
+
+@article{buildinggym_2025,
+  author  = {Dai, Xilei and Chen, Ruotian and Guan, Songze and Li, Wen-Tai and Yuen, Chau},
+  title   = {{BuildingGym}: An open-source toolbox for {AI}-based building
+             energy management using reinforcement learning},
+  journal = {arXiv preprint arXiv:2509.11922},
+  year    = {2025},
+}
+
+@article{boptest_mpc_2023,
+  author  = {Arroyo, Javier and Manna, Carlo and Spiessens, Fred and
+             Helsen, Lieve},
+  title   = {Benchmarking Model Predictive Control Algorithms in Building
+             Optimization Testing Framework ({BOPTEST})},
+  journal = {arXiv preprint arXiv:2301.13447},
+  year    = {2023},
+}

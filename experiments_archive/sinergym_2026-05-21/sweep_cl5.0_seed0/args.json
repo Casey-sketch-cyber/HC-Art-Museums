@@ -1,0 +1,12 @@
+{
+  "algo": "lagrangian",
+  "env": "sinergym",
+  "seed": 0,
+  "total_steps": 200000,
+  "n_envs": 16,
+  "penalty": 5.0,
+  "cost_limit": 5.0,
+  "run_name": "sweep_cl5.0_seed0",
+  "log_dir": "logs",
+  "result_dir": "results"
+}

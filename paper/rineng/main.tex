@@ -1,0 +1,138 @@
+%% Results in Engineering (Elsevier CAS single-column) submission.
+\documentclass[a4paper,fleqn]{cas-sc}
+
+\usepackage[authoryear,longnamesfirst]{natbib}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{siunitx}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{enumitem}
+
+\sisetup{detect-weight=true,group-separator={,},output-decimal-marker={.}}
+
+\begin{document}
+\let\WriteBookmarks\relax
+\def\floatpagepagefraction{1}
+\def\textpagefraction{.001}
+
+\shorttitle{Safe RL with conservation-aware constraints for museum HVAC}
+\shortauthors{H. Zhao et al.}
+
+\title[mode=title]{Safe Reinforcement Learning with Conservation-Aware
+Constraints for HVAC Control in Art Museums: Encoding EN 15757 Rate
+Limits as a Constrained MDP}
+
+\author[1]{He Zhao}
+\cormark[1]
+\ead{2010011@glut.edu.cn}
+\credit{Conceptualization, Methodology, Software, Investigation, Writing -- original draft}
+\affiliation[1]{organization={School of Art, Guilin University of Technology},
+            city={Guilin},
+            postcode={541004},
+            country={China}}
+
+\author[2]{Wei Xiong}
+\ead{xiongwei@glut.edu.cn}
+\credit{Methodology, Formal analysis}
+\affiliation[2]{organization={School of Mechanical and Control Engineering, Guilin University of Technology},
+            city={Guilin},
+            postcode={541004},
+            country={China}}
+
+\author[3]{Zhanhao Liang}
+\ead{lyon@cumt.edu.cn}
+\credit{Investigation, Validation}
+\affiliation[3]{organization={School of Materials Science and Engineering, South China University of Technology},
+            city={Guangzhou},
+            country={China}}
+
+\author[4]{Qitao Zou}
+\ead{2294252051@qq.com}
+\credit{Data curation, Software}
+\affiliation[4]{organization={School of Information Engineering, Guilin University},
+            city={Guilin},
+            country={China}}
+
+\author[1]{L\"u Tan}
+\ead{2354339206@qq.com}
+\credit{Visualization, Writing -- review and editing}
+
+\author[1]{Yiming Lei}
+\ead{305275591@qq.com}
+\credit{Investigation, Writing -- review and editing}
+
+\cortext[1]{Corresponding author.}
+
+\begin{abstract}
+Museum HVAC systems run year-round at energy intensities two to three
+times those of office buildings, because conservation envelopes require
+narrow-band control of temperature and relative humidity. Existing
+controllers either treat conservation limits as soft reward penalties,
+conflicting with the safety semantics of EN~15757 and ASHRAE Class~A1,
+or use classical multi-objective optimization that cannot adapt to
+time-varying loads. We formulate museum HVAC control as a Constrained
+Markov Decision Process that aggregates ASHRAE static envelopes and the
+EN~15757 dynamic rate caps on $|\mathrm{d}T/\mathrm{d}t|$ and
+$|\mathrm{d}\mathrm{RH}/\mathrm{d}t|$ into a scalar cost, and solve it
+with a Lagrangian Proximal Policy Optimization controller whose
+multiplier is updated by a PID loop. We also document an implementation
+pitfall in subprocess-based vectorized training: the multiplier must be
+pushed to workers via the \texttt{set\_attr} mechanism. On a five-zone
+simulator, a six-budget Pareto sweep shows annual energy varying by only
+$0.4\%$ while the year-total conservation cost varies by a factor of
+$2.5$; at the strictest budget the controller cuts conservation cost by
+$85\%$ and violation steps by $41\%$ versus a fixed $22\,^\circ$C$/50\%$RH
+baseline, at a $1\%$ energy overhead, with residual violations confined
+to a single constraint-coupled zone. We then stress-test these
+conclusions on a high-fidelity EnergyPlus model extended with per-zone
+thermostats and active humidification. The localization finding
+transfers, but the performance advantage does not: there a tuned fixed
+setpoint outperforms the constrained controller, because the energy
+gradient overwhelms the constraint signal. We release the testbed.
+\end{abstract}
+
+\begin{highlights}
+\item EN 15757 temperature and humidity rate caps encoded as a CMDP cost.
+\item Lagrangian-PPO traces an energy--conservation Pareto front on a 5-zone simulator.
+\item Residual violations localize to one constraint-coupled (bronze) zone.
+\item A lambda-propagation pitfall in subprocess vectorized training is documented.
+\item On high-fidelity EnergyPlus, RL is beaten by a tuned fixed setpoint.
+\end{highlights}
+
+\begin{keywords}
+safe reinforcement learning \sep constrained Markov decision process \sep
+museum HVAC \sep preventive conservation \sep EN~15757 \sep
+proximal policy optimization
+\end{keywords}
+
+\maketitle
+
+\input{body.tex}
+
+\section*{Funding}
+This work was supported by the Guangxi Key Research and Development
+Program [grant number Guike AB23075096].
+
+\section*{Declaration of competing interest}
+The authors declare that they have no known competing financial
+interests or personal relationships that could have appeared to
+influence the work reported in this paper.
+
+\section*{Data availability}
+Code, the five-zone simulator, the multi-zone EnergyPlus testbed, and the
+evaluation scripts are available for review at an anonymized repository
+(\url{https://anonymous.4open.science/r/museum-safe-rl-B65B/}) and will
+be released under an open-source license upon publication.
+
+\section*{Declaration of generative AI and AI-assisted technologies in the manuscript preparation process}
+During the preparation of this work the authors used an AI assistant in
+order to polish the language of the manuscript and to assist with
+formatting. After using this tool, the authors reviewed and edited the
+content as needed and take full responsibility for the content of the
+published article.
+
+\bibliographystyle{cas-model2-names}
+\bibliography{references}
+
+\end{document}

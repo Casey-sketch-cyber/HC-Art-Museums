@@ -1,0 +1,63 @@
+# Conservation envelope per museum zone.
+# Derived from ASHRAE Handbook—HVAC Applications Ch.24 (museums) and EN 15757:2010.
+# Each zone's collection determines its envelope. Five zones map 1:1 onto the
+# Sinergym 5-zone office IDF (we re-interpret them as museum spaces).
+
+zones:
+  oil_painting_gallery:    # ASHRAE Class A1 — strictest
+    sinergym_zone: SPACE1-1
+    T_min:     19.0       # degC
+    T_max:     24.0       # degC
+    RH_min:    45.0       # %
+    RH_max:    55.0       # %
+    dT_dt_max:  2.0       # K/hour
+    dRH_dt_max: 5.0       # %/hour
+    collection: "oil paintings on canvas"
+
+  paper_works_gallery:     # ASHRAE Class A1 — paper-on-paper
+    sinergym_zone: SPACE2-1
+    T_min:     18.0
+    T_max:     22.0
+    RH_min:    45.0
+    RH_max:    55.0
+    dT_dt_max:  2.0
+    dRH_dt_max: 5.0
+    collection: "prints, drawings, manuscripts"
+
+  bronze_storage:          # ASHRAE Class A2 — drier
+    sinergym_zone: SPACE3-1
+    T_min:     15.0
+    T_max:     25.0
+    RH_min:    30.0
+    RH_max:    40.0
+    dT_dt_max:  3.0
+    dRH_dt_max: 10.0
+    collection: "bronze and metal artifacts"
+
+  mixed_gallery:           # ASHRAE Class A2 — relaxed
+    sinergym_zone: SPACE4-1
+    T_min:     18.0
+    T_max:     24.0
+    RH_min:    40.0
+    RH_max:    60.0
+    dT_dt_max:  3.0
+    dRH_dt_max: 10.0
+    collection: "mixed media, temporary exhibitions"
+
+  public_lobby:            # No artifacts — comfort-only zone
+    sinergym_zone: SPACE5-1
+    T_min:     20.0
+    T_max:     26.0
+    RH_min:    30.0
+    RH_max:    70.0
+    dT_dt_max:  10.0
+    dRH_dt_max: 30.0
+    collection: "none"
+
+# Reward weights. The Lagrange multiplier lambda for the constraint cost is
+# learned automatically; these are the soft-objective coefficients.
+reward:
+  w_energy:  1.0            # weight on normalized HVAC energy (always negative)
+  w_comfort: 0.5            # PMV deviation from neutral in public_lobby
+  energy_norm_kwh: 100.0    # divide raw kWh per step by this
+  comfort_band:    0.5      # |PMV| > this counts as violation

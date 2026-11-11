@@ -1,0 +1,5 @@
+EN 15757 temperature and humidity rate caps encoded as a CMDP cost.
+Lagrangian-PPO traces an energy-conservation Pareto front on a 5-zone simulator.
+Residual violations localize to one constraint-coupled (bronze) zone.
+A lambda-propagation pitfall in subprocess vectorized training is documented.
+On high-fidelity EnergyPlus, RL is beaten by a tuned fixed setpoint.

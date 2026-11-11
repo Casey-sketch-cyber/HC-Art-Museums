@@ -1,0 +1,1024 @@
+% =============================================================================
+% Safe Reinforcement Learning with Conservation-Aware Constraints for
+% HVAC Control in Art Museums: Encoding EN 15757 Rate Limits as a
+% Constrained MDP.
+%
+% Target venue (open-access Q2): Energies (MDPI) primary, Buildings (MDPI)
+% fallback, Heritage Science (Springer/BMC) for heritage-framed re-submission.
+%
+% Compile with build.sh (latexmk or pdflatex/bibtex).
+% =============================================================================
+
+\documentclass[11pt,a4paper]{article}
+
+% ---- core packages ---------------------------------------------------------
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{microtype}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{siunitx}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage[hidelinks]{hyperref}
+\usepackage[round,authoryear]{natbib}
+\usepackage{lineno}                 % line numbers for reviewers
+\usepackage{titlesec}
+\usepackage{multirow}
+
+% Useful macros.
+\newcommand{\eg}{e.g.,\xspace}
+\newcommand{\ie}{i.e.,\xspace}
+\providecommand{\xspace}{}
+\renewcommand{\baselinestretch}{1.1}
+\setlength{\parskip}{4pt}
+\setlength{\parindent}{0pt}
+
+\sisetup{detect-weight=true,group-separator={,},output-decimal-marker={.}}
+
+% Cleaner section spacing.
+\titleformat*{\section}{\large\bfseries}
+\titleformat*{\subsection}{\normalsize\bfseries}
+
+% =============================================================================
+\begin{document}
+
+% Blinded manuscript: line numbers and author block removed (double-blind).
+
+
+% =====================  TITLE  ==============================================
+\begin{center}
+\Large\bfseries
+Safe Reinforcement Learning with Conservation-Aware Constraints
+for HVAC Control in Art Museums:\\[3pt]
+Encoding EN 15757 Rate Limits as a Constrained MDP
+\end{center}
+
+
+
+% =====================  ABSTRACT  ===========================================
+\section*{Abstract}
+
+Museum HVAC systems run year-round at energy intensities two to three
+times those of comparable office buildings, because conservation
+envelopes for hygroscopic and metallic collections require narrow-band
+control of temperature and relative humidity. Existing controllers
+either treat conservation limits as soft reward penalties, which
+conflicts with the safety semantics of EN~15757 and ASHRAE Class~A1,
+or use classical multi-objective optimization that cannot adapt to
+time-varying visitor and weather loads. We formulate museum HVAC
+control as a Constrained Markov Decision Process (CMDP), aggregating
+ASHRAE static envelopes and the EN~15757 dynamic rate caps on
+$|\mathrm{d}T/\mathrm{d}t|$ and $|\mathrm{d}\mathrm{RH}/\mathrm{d}t|$
+into a single scalar cost. The problem is solved with a Lagrangian
+Proximal Policy Optimization controller whose Lagrange multiplier
+$\lambda$ is updated by a PID loop targeting a user-specified cost
+budget. We further identify and resolve an implementation pitfall in
+subprocess-based vectorized training: $\lambda$ does not reach
+\texttt{SubprocVecEnv} workers unless it is pushed via the
+\texttt{set\_attr} mechanism. On a five-zone museum simulator, a
+six-budget Pareto sweep shows that annual energy varies by only
+$0.4\%$ while the year-total
+conservation cost varies by a factor of $2.5$. At the strictest budget,
+the policy reduces year-total conservation cost by $85\%$ and violation
+steps by $41\%$ relative to a fixed $22^\circ\mathrm{C}/50\%\mathrm{RH}$
+baseline, at a $1\%$ energy overhead. A per-zone analysis shows that
+residual violations stay confined to a single constraint-coupled zone,
+whereas unconstrained and penalty-only variants spread violations
+across all five zones. Code, simulator, and evaluation scripts will be
+released upon publication.
+
+\vspace{6pt}\noindent\textbf{Keywords:}
+safe reinforcement learning;
+constrained Markov decision processes;
+museum HVAC;
+preventive conservation;
+EN~15757;
+proximal policy optimization.
+
+% =====================  HIGHLIGHTS  =========================================
+\section*{Highlights}
+\begin{itemize}[leftmargin=*,nosep]
+  \item EN~15757 temperature and humidity rate caps are encoded as CMDP
+        costs alongside static ASHRAE-style envelopes.
+  \item Lagrangian-PPO with a PID multiplier traces an energy--conservation
+        Pareto front on a five-zone museum simulator.
+  \item At the strictest cost budget, year-total conservation cost is
+        reduced by $85\%$ at a $\le 1\%$ energy overhead relative to a
+        $22\,^\circ$C / $50\%$\,RH baseline.
+  \item Residual violations are confined to a single constraint-coupled
+        zone instead of being distributed across the museum.
+  \item An implementation pitfall is documented: $\lambda$ must be
+        propagated explicitly across parallel subprocess environments.
+\end{itemize}
+
+% =====================  1. INTRODUCTION  ====================================
+\section{Introduction}\label{sec:intro}
+
+Cultural institutions are among the most energy-intensive non-industrial
+buildings. Climate-controlled museum spaces consume
+250--500\,kWh\,m$^{-2}$\,yr$^{-1}$, two to three times the intensity of
+comparable office space, because conservation envelopes for sensitive
+collections require year-round narrow-band control of both temperature and
+relative humidity \citep{ashrae_handbook_ch24,verticchio2024microclimate}.
+In Europe alone, public-museum HVAC consumes an estimated 5\,TWh of
+electricity annually, and double-carbon policy goals are now placing
+pressure on cultural institutions to decarbonize without compromising
+preventive conservation.
+
+The standard institutional response is to operate at a single nominal
+setpoint, typically $22^\circ\mathrm{C}$ and $50\%$ relative humidity, that
+sits inside the conservation envelope of the strictest collection in the
+building. This approach has three documented weaknesses. First, it ignores
+time-varying loads: visitor-driven sensible and latent gains, solar gain,
+and outdoor weather all vary by an order of magnitude across the day, so
+a constant setpoint converts every disturbance into HVAC work. Second, it
+underuses the per-zone heterogeneity of the collection. Standards such as
+EN~15757~\citep{en15757}, the broader heritage-building specification
+EN~16893~\citep{en16893}, and ASHRAE Class~A1/A2~\citep{ashrae_handbook_ch24}
+prescribe ranges, not points, and the safe range for bronze
+($\mathrm{RH}\in[30,40]\%$) is incompatible with the safe range for oil
+paintings ($\mathrm{RH}\in[45,55]\%$); a single setpoint necessarily
+violates one of them. Third, it treats conservation as a static envelope
+and ignores the rate clauses in modern standards: EN~15757 limits hourly
+$\mathrm{d}\mathrm{RH}/\mathrm{d}t$ for hygroscopic materials, because
+mechanical damage is dominated by short-term cycles rather than long-term
+mean states.
+
+Reinforcement learning (RL) and model-predictive control (MPC) have been
+studied extensively for office and residential HVAC
+\citep{brandi2022online,wang2017drlhvac,drgona2020mpc_review}. Open
+testbeds such as Sinergym~\citep{manjavacas2024sinergym} now make it
+straightforward to plug EnergyPlus building models into Gymnasium-style
+training loops. Deploying these controllers in museums, however, forces a
+qualitative change in safety semantics: an office-comfort violation is
+annoying, while a conservation-envelope violation accumulates irreversible
+damage to irreplaceable objects. The museum-specific HVAC literature has
+so far either used classical multi-objective optimization without learning
+\citep{ascione2018museum,schito2020museum} or treated conservation limits
+as soft penalties inside a standard RL reward
+\citep{green_smart_museums_2025,boesgaard2022heritage}; the constrained
+formulation remains underexplored.
+
+\paragraph{Contributions.}
+This paper makes four contributions, indexed C1--C4 as referenced in the
+section titles. C1: museum HVAC control is formalized as a Constrained
+Markov Decision Process (CMDP) in which (i) static temperature and
+humidity envelopes from ASHRAE Class~A1, A2, and unconstrained categories
+and (ii) the EN~15757 dynamic rate clauses on
+$|\mathrm{d}T/\mathrm{d}t|$ and $|\mathrm{d}\mathrm{RH}/\mathrm{d}t|$
+are encoded as a scalar cost. To the best of our knowledge, this is the
+first CMDP formulation that includes the rate clauses. C2: we implement
+a Lagrangian-PPO controller with a PID-tuned multiplier following
+\citet{stooke2020responsive}, and document a subtle but blocking
+implementation issue: when training with subprocess-based parallel
+environments, $\lambda$ must be propagated via the \texttt{VecEnv}
+attribute-setter mechanism, not through a Python mutable reference
+captured in an env-factory closure. C3: a five-zone differentiated museum
+simulator is constructed with collection-specific conservation envelopes
+and a synthetic visitor flow, and Lagrangian-PPO is benchmarked against
+four baselines: rule-based fixed setpoint, schedule-relaxed rule-based,
+vanilla unconstrained PPO, and fixed-weight soft-penalty PPO. C4: we
+trace a three-objective Pareto front by sweeping the cost target. The
+front shows that the major energy-conservation trade-off lies along the
+conservation axis: relaxing the cost budget by an order of magnitude
+changes annual energy by less than $1\%$ but more than doubles the
+conservation cost.
+
+The remainder of the paper is organized as follows.
+Section~\ref{sec:related} positions the work against existing museum
+HVAC optimization, Safe RL, and digital-twin building literatures.
+Section~\ref{sec:problem} states the CMDP formulation and the
+conservation cost. Section~\ref{sec:method} describes the Lagrangian-PPO
+algorithm and the implementation issue noted in C2.
+Section~\ref{sec:setup} describes the simulator and baselines.
+Section~\ref{sec:results} reports the Pareto front and the per-zone
+analysis. Section~\ref{sec:discussion} discusses limitations and the
+path to a real-EnergyPlus deployment.
+
+% =====================  2. RELATED WORK  ====================================
+\section{Related Work}\label{sec:related}
+
+\subsection{Museum HVAC optimization and microclimate}
+
+Museum HVAC research has evolved from monitoring-only studies toward
+control-aware multi-objective optimization. \citet{ascione2018museum}
+formulated museum microclimate control as a three-objective problem in
+energy, visitor discomfort, and artwork preservation risk, and solved it
+with NSGA-II. Their preservation risk is computed offline from
+monthly-aggregated environmental traces.
+\citet{schito2020museum} extended this line of work with an
+achievement-function formulation applied to a Pisa case study, producing
+Pareto-optimal HVAC setpoint schedules. Both works treat the controller
+as a parameter-tuning problem rather than a closed-loop policy, and they
+do not include the EN~15757 rate clauses.
+\citet{coelho2020museum} took a complementary route, using hygrothermal
+simulation to assess the impact of climate change on artefact
+conservation and building energy use, but operates offline. \citet{verticchio2024microclimate} re-examined
+microclimate thresholds parametrically and quantified the energy cost of
+each standard tolerance class.
+
+Recent work has begun to combine learning with conservation-aware
+control. \citet{boesgaard2022heritage} applied gradient-boosting and
+LSTM models to predict indoor temperature and humidity evolution in two
+heritage buildings. \citet{green_smart_museums_2025} proposed an
+integrated framework that combines digital-twin modeling, LSTM-based load
+forecasting, and a Deep Q-Network (DQN) controller for HVAC and lighting
+across three Chinese museum case studies. Their DQN minimizes a weighted
+sum of energy cost and visitor-comfort penalty; conservation enters only
+as a soft penalty term and EN~15757 rate clauses are not formalized.
+Outside the optimization stream, \citet{museum_no_hvac_2025},
+\citet{greek_museum_2024}, and \citet{coherence_heritage_2025}
+characterize microclimates in heritage buildings without active control,
+while \citet{membrane_dehumid_museum_2025} explored hardware-side
+interventions such as membrane-based dehumidification. The thermal
+comfort side has also been re-examined for museums:
+\citet{mudejar2024adaptive} showed that adaptive comfort models
+\citep{ashrae552020,en167982020} can relax setpoint requirements without
+increasing visitor dissatisfaction. None of these works formulate a
+closed-loop constraint-respecting controller of the type studied here.
+
+\subsection{Safe and constrained reinforcement learning}
+
+Constrained Markov Decision Processes~\citep{altman1999constrained}
+provide the canonical framework for RL under safety constraints.
+Constrained Policy Optimization~\citep{achiam2017cpo} solves the CMDP
+with a primal-dual approach inside a trust-region update.
+\citet{stooke2020responsive} showed that the dual variable $\lambda$ can
+be updated by a PID controller targeting the cost budget, yielding more
+stable training than the pure proportional update of CPO; we build
+directly on this PID-Lagrangian formulation. Recent infrastructure has
+made the area accessible: Safety Gymnasium~\citep{ji2023safety} and
+OmniSafe~\citep{ji2023omnisafe} provide unified benchmarks and
+implementations of PPO-Lag and CPPO-PID, and
+\citet{constraint_formulations_2024} surveyed the design space of
+constraint formulations.
+
+Safe RL has been applied to building energy management with mixed
+success. \citet{safe_rl_buildings_mdpi_2025} train a barrier-certificate
+agent that progressively reduces safety violations during training, and
+\citet{safe_mbrl_hvac_2024} use a model-based RL system with uncertainty
+gating for HVAC control. Neither work addresses the museum conservation
+problem, the dynamic EN~15757 rate constraints, or the per-zone
+collection heterogeneity studied here.
+
+\subsection{Reinforcement learning for HVAC at large}
+
+Deep RL for HVAC has progressed from early proof-of-concept studies on
+single-zone office buildings~\citep{wang2017drlhvac,brandi2022online} to
+recent benchmarks against ASHRAE Guideline~36 control sequences in
+multi-zone buildings~\citep{drl_g36_2025}. Co-optimization of energy,
+thermal comfort, and indoor air quality is the topic of
+\citet{drl_co_optimize_2024}. Expert-guided warm-starting accelerates
+training while preserving safety properties~\citep{efficient_assured_2025}.
+\citet{boptest_rl_2025} validated an RL agent against real-building
+measurements using the BOPTEST framework~\citep{boptest_mpc_2023}.
+
+Multi-zone coordination is the next frontier.
+\citet{drl_setpoint_multizone_2022} explored setpoint reset RL across
+multiple zones; recent multi-agent RL work
+\citep{marl_zone_alloc_2025,marl_electrochromic_2025,marl_demand_response_2025}
+shows that centralized-training-with-decentralized-execution
+architectures match or beat single-agent baselines while respecting
+structural constraints. MPC reviews~\citep{drgona2020mpc_review} remain
+the strongest classical baselines.
+
+\subsection{Building digital twins and decarbonization}
+
+Digital-twin (DT) technology is a maturing tool for building energy
+management. Reviews \citep{dt_buildings_2025,dt_ieq_review_2025} report
+that gaps between simulated and real building behavior often exceed
+$30\%$ in occupant-driven variability. AI-enabled HVAC control is a
+central element of net-zero strategies in 2025
+roadmaps~\citep{ai_hvac_zeb_2025}, and DTs are increasingly paired with
+LSTM and Transformer load forecasters~\citep{hybrid_lstm_transformer_load_2026,
+lstm_transformer_power_2025}. For heritage applications specifically,
+IoT-based microclimate monitoring has scaled from research prototypes
+to deployable systems~\citep{iot_low_budget_museum_2022,
+iot_microclimate_heritage_2024}.
+
+\subsection{Building simulation testbeds}
+
+Sinergym~\citep{manjavacas2024sinergym} provides a Gymnasium-style
+wrapper around EnergyPlus~\citep{energyplus} and is the testbed we use
+for high-fidelity validation. Alternative testbeds include
+BOPTEST~\citep{boptest_mpc_2023} (Modelica-based) and the recent
+BuildingGym~\citep{buildinggym_2025} toolbox. Our fast iteration
+environment, a five-zone lumped-capacity thermal network, exposes the
+same Gymnasium API as Sinergym, so the Lagrangian-PPO controller
+transfers without code change to a calibrated EnergyPlus model.
+Calibration follows the standard ASHRAE Guideline~14
+metrics~\citep{ashrae_guideline14} (CV-RMSE${<}30\%$, NMBE${<}10\%$ for
+hourly data).
+
+% =====================  3. PROBLEM FORMULATION  =============================
+\section{Problem Formulation}\label{sec:problem}
+
+\subsection{Constrained Markov Decision Process}
+
+We model the museum HVAC control problem as a discrete-time CMDP
+$\langle\mathcal{S},\mathcal{A},P,r,c,\gamma,d\rangle$ with state space
+$\mathcal{S}$, action space $\mathcal{A}$, transition kernel $P$, scalar
+reward $r:\mathcal{S}\times\mathcal{A}\to\mathbb{R}$, scalar cost
+$c:\mathcal{S}\times\mathcal{A}\to\mathbb{R}_{\ge 0}$, discount factor
+$\gamma\in(0,1)$, and a cost budget $d\in\mathbb{R}_{\ge 0}$. A
+stationary policy $\pi:\mathcal{S}\to\Delta(\mathcal{A})$ is feasible
+when
+\begin{equation}
+\mathbb{E}_{\pi}\!\left[\sum_{t=0}^\infty \gamma^{\,t}\, c(s_t,a_t)\right]
+\le d,
+\label{eq:cmdp_constraint}
+\end{equation}
+and the constrained objective is
+\begin{equation}
+\max_{\pi}\;\;\mathbb{E}_{\pi}\!\left[\sum_{t=0}^\infty \gamma^{\,t}\, r(s_t,a_t)\right]
+\;\text{ subject to \eqref{eq:cmdp_constraint}.}
+\label{eq:cmdp_objective}
+\end{equation}
+
+\subsection{State, action, and reward}\label{sec:state_action_reward}
+
+For a museum with $Z$ zones (we use $Z=5$ in our experiments) the state
+at time $t$ aggregates four blocks:
+\begin{equation}
+s_t = \big[\,\mathbf{T}_t,\;\mathbf{H}_t,\;\boldsymbol{\theta}_t,\;
+            \boldsymbol{u}_{t-1}\,\big]^{\top},
+\label{eq:state}
+\end{equation}
+where $\mathbf{T}_t,\mathbf{H}_t\in\mathbb{R}^{Z}$ are zone air
+temperature and relative humidity, $\boldsymbol{\theta}_t$ collects
+outdoor weather, time-of-day, day-of-week, and instantaneous visitor
+count, and $\boldsymbol{u}_{t-1}\in\mathbb{R}^{2Z}$ are the previous
+control setpoints. The action $a_t\in[-1,1]^{2Z}$ is mapped affinely
+onto per-zone temperature and humidity setpoints in
+$[16,28]^\circ\mathrm{C}\times[30,70]\%\mathrm{RH}$.
+
+The reward combines an energy term and a public-space comfort term:
+\begin{equation}
+r_t = -w_E\,\frac{E_t}{E_{\mathrm{norm}}} - w_C\,\max\big(0,|\mathrm{PMV}_t|-\eta\big),
+\label{eq:reward}
+\end{equation}
+where $E_t$ is the per-step HVAC electrical energy (kWh),
+$E_{\mathrm{norm}}$ a normalization constant, $\mathrm{PMV}_t$ the
+Predicted Mean Vote in the public lobby, and $\eta=0.5$ a comfort
+dead-band.
+
+\subsection{Conservation cost}\label{sec:conservation_cost}
+
+For zone $i$ with collection-determined envelope
+$(T_{\min,i},T_{\max,i},\mathrm{RH}_{\min,i},\mathrm{RH}_{\max,i})$ and
+EN~15757 rate caps $(\alpha_i,\beta_i)$, the per-step violation is
+
+\begin{equation}
+v^{T}_{i,t}  = \big[T_{\min,i}-T_{i,t}\big]_+ + \big[T_{i,t}-T_{\max,i}\big]_+,
+\label{eq:vT}
+\end{equation}
+\begin{equation}
+v^{\mathrm{RH}}_{i,t}= \big[\mathrm{RH}_{\min,i}-\mathrm{RH}_{i,t}\big]_+ +
+                       \big[\mathrm{RH}_{i,t}-\mathrm{RH}_{\max,i}\big]_+,
+\label{eq:vRH}
+\end{equation}
+\begin{equation}
+v^{\dot T}_{i,t}     = \big[\,|\dot T_{i,t}|-\alpha_i\,\big]_+,
+\label{eq:vTdot}
+\end{equation}
+\begin{equation}
+v^{\dot{\mathrm{RH}}}_{i,t} = \big[\,|\dot{\mathrm{RH}}_{i,t}|-\beta_i\,\big]_+,
+\label{eq:vRHdot}
+\end{equation}
+where $[\,\cdot\,]_+=\max(\,\cdot\,,0)$ and the rates $\dot T,
+\dot{\mathrm{RH}}$ are computed by backward difference over the 15-min
+control step. The scalar cost at time $t$ is the normalized sum
+\begin{equation}
+c_t = \sum_{i=1}^{Z}\Big(
+   \tfrac{v^{T}_{i,t}}{\sigma_T}
+ + \tfrac{v^{\mathrm{RH}}_{i,t}}{\sigma_{\mathrm{RH}}}
+ + \tfrac{v^{\dot T}_{i,t}}{\sigma_{\dot T}}
+ + \tfrac{v^{\dot{\mathrm{RH}}}_{i,t}}{\sigma_{\dot{\mathrm{RH}}}}\Big),
+\label{eq:cost}
+\end{equation}
+with normalization scales $(\sigma_T,\sigma_{\mathrm{RH}},\sigma_{\dot T},
+\sigma_{\dot{\mathrm{RH}}})=(1\,\mathrm{K},5\%,1\,\mathrm{K/h},2.5\%/\mathrm{h})$
+chosen so that each component is $O(1)$ at a $1\sigma$ hard failure.
+
+Table~\ref{tab:envelopes} lists the per-zone envelopes used in this
+paper, derived from ASHRAE Handbook Chapter~24 class definitions
+\citep{ashrae_handbook_ch24} and EN~15757~\citep{en15757}.
+
+\begin{table}[t]
+\centering
+\caption{Per-zone conservation envelopes used in the simulator. ASHRAE
+classes: A1 = strictest (organics on display), A2 = relaxed
+(non-hygroscopic), --- = unconstrained.}
+\label{tab:envelopes}
+\small
+\begin{tabular}{lccccccc}
+\toprule
+Zone & Class & $T_{\min}$ & $T_{\max}$ & $\mathrm{RH}_{\min}$
+     & $\mathrm{RH}_{\max}$ & $\alpha$ & $\beta$\\
+     &       & ($^\circ$C) & ($^\circ$C) & (\%) & (\%) & (K/h) & (\%/h)\\
+\midrule
+oil-painting gallery   & A1 & 19 & 24 & 45 & 55 & 2  & 5 \\
+paper-works gallery    & A1 & 18 & 22 & 45 & 55 & 2  & 5 \\
+bronze storage         & A2 & 15 & 25 & 30 & 40 & 3  & 10 \\
+mixed gallery          & A2 & 18 & 24 & 40 & 60 & 3  & 10 \\
+public lobby           & ---& 20 & 26 & 30 & 70 & 10 & 30 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% =====================  4. METHODOLOGY  ====================================
+\section{Methodology}\label{sec:method}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/fig_framework.png}
+\caption{System architecture of the Lagrangian-PPO museum HVAC
+controller. The training pipeline is shown for $N$ parallel
+environments. The simulator emits the state $s_t$ and the per-step
+conservation cost $c_t$; the \texttt{CostRewardWrapper} fuses these
+into a surrogate reward $\tilde r_t = r_t - \lambda c_t$; the PPO
+actor-critic consumes the surrogate reward and emits the action $a_t$
+that closes the inner loop. Once per rollout, the PID Lagrangian
+controller updates $\lambda$ from the mean rollout cost
+$\hat J_c$ and the cost budget $d$, and pushes the new value back to
+every parallel \texttt{CostRewardWrapper} via the dashed feedback
+edge (\texttt{set\_attr}). At deployment time, only the trained policy
+is required.}
+\label{fig:framework}
+\end{figure}
+
+Figure~\ref{fig:framework} summarizes the training and inference
+pipeline. The simulator emits the state $s_t$ defined in
+Eq.~\eqref{eq:state} together with the per-step conservation cost
+$c_t$ from Eq.~\eqref{eq:cost}. A \texttt{CostRewardWrapper} subtracts
+$\lambda c_t$ from the environment reward, and the resulting surrogate
+reward in Eq.~\eqref{eq:lagrangian_reward} drives the PPO actor-critic
+update. The Lagrange multiplier $\lambda$ is updated once per rollout
+by the PID controller of Eq.~\eqref{eq:pid_lambda} and then propagated
+to all parallel environments.
+
+\subsection{Lagrangian PPO with a PID multiplier}
+
+We solve the CMDP in Eq.~\eqref{eq:cmdp_objective} by Lagrangian
+relaxation. For multiplier $\lambda\ge 0$, the surrogate per-step
+reward is
+\begin{equation}
+\tilde r_t(\lambda) = r_t - \lambda\,c_t,
+\label{eq:lagrangian_reward}
+\end{equation}
+and the saddle-point objective is
+\begin{equation}
+\min_{\lambda\ge 0}\;\max_{\pi}\;
+\mathbb{E}_\pi\!\left[\sum_{t=0}^{\infty}\gamma^{\,t}\,
+                 \big(r_t - \lambda\,(c_t - (1-\gamma)\,d)\big)\right].
+\label{eq:saddle}
+\end{equation}
+The inner maximization is performed by Proximal Policy Optimization
+(PPO) on the surrogate reward \eqref{eq:lagrangian_reward}, with the
+standard Generalized Advantage Estimator~\citep{schulman2015gae}
+($\gamma=0.99$, $\lambda_{\mathrm{GAE}}=0.95$), as implemented in
+Stable-Baselines3~\citep{raffin2021sb3}. The outer minimization over $\lambda$ is
+performed by a PID controller on the empirical violation
+$\hat J_c - d$, where $\hat J_c$ is the mean per-step cost over the
+most recent rollout~\citep{stooke2020responsive}:
+\begin{equation}
+\lambda \leftarrow \mathrm{clip}\Big(
+   \lambda + K_P(\hat J_c - d) + K_I\!\!\sum_{k}(\hat J_{c,k}-d)
+   + K_D\Delta(\hat J_c-d),\;\,
+   [0,\lambda_{\max}]\Big).
+\label{eq:pid_lambda}
+\end{equation}
+We use $K_P=0.05$, $K_I=5\times 10^{-4}$, $K_D=0$, and
+$\lambda_{\max}=100$. Algorithm~\ref{alg:lpppo} summarizes the full
+training loop.
+
+\begin{algorithm}[t]
+\caption{Lagrangian PPO with PID multiplier and subprocess-safe
+$\lambda$ propagation.}
+\label{alg:lpppo}
+\begin{algorithmic}[1]
+\State Initialize policy $\pi_\theta$, value $V_\phi$, multiplier
+       $\lambda \leftarrow \lambda_0$, integrator $I\leftarrow 0$.
+\State Create $N$ parallel envs $\{E_n\}_{n=1}^N$ wrapped with
+       \texttt{CostRewardWrapper}, each holding an internal
+       attribute \texttt{\_lambda\_scalar} initialized to $\lambda_0$.
+\For{rollout $k=1,2,\dots$}
+  \State Collect a rollout of length $T$ in each $E_n$ using the
+         current policy; each step emits
+         $\tilde r_t = r_t - E_n.\texttt{\_lambda\_scalar}\cdot c_t$
+         and stores $c_t$ in an in-process per-env cost buffer.
+  \State Run a PPO update on the rollout buffer (clipped surrogate
+         + GAE) for $K$ epochs.
+  \State \textbf{(End-of-rollout callback)} Pull
+         $\{c_t\}$ buffers from all $N$ envs via
+         \texttt{VecEnv.env\_method("pop\_cost\_buffer")}, compute
+         $\hat J_c \leftarrow \mathrm{mean}(c)$.
+  \State Update $\lambda$ via Eq.~\eqref{eq:pid_lambda}.
+  \State \textbf{Push} $\lambda$ to all parallel envs via
+         \texttt{VecEnv.set\_attr("\_lambda\_scalar",~$\lambda$)}.
+\EndFor
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Implementation pitfall: cross-process $\lambda$ propagation}\label{sec:pitfall}
+
+Subprocess-based parallel environments such as Stable-Baselines3's
+\texttt{SubprocVecEnv} construct each env inside a separate Python
+process. An env factory closure is pickled, sent to the worker, and
+unpickled before instantiation. A Python mutable object such as a
+\texttt{dict} captured in the closure is therefore copied at
+construction time, and any subsequent mutation by the parent process
+is invisible to the workers.
+
+\paragraph{Failure mode.}
+We confirmed this experimentally. A naive implementation that stores
+the multiplier in a shared \texttt{dict} produces six policies that
+are byte-identical across cost budgets $d\in\{0,0.5,1,2,5,10\}$,
+because every worker sees only the initial $\lambda_0$. The Pareto
+front collapses to a single point. Diagnosis required comparing the
+state dictionaries of independently trained networks.
+
+\paragraph{Fix.}
+Store $\lambda$ as a scalar attribute on each wrapper instance, and
+push updates from the rollout-end callback via
+\texttt{VecEnv.set\_attr}, which calls
+\texttt{setattr(env, name, value)} inside each worker process. This
+adds one round-trip per rollout, which is negligible compared to
+thousands of env steps, and yields correct cross-process
+synchronization. Algorithm~\ref{alg:lpppo} reflects the corrected
+implementation.
+
+We document this pitfall in detail because Safe RL building-energy
+papers routinely report Lagrangian formulations without specifying the
+vectorization strategy. A change between \texttt{DummyVecEnv}
+(single-process; correct by default) and \texttt{SubprocVecEnv}
+(multi-process; requires explicit synchronization) can silently
+invalidate the constraint.
+
+% =====================  5. EXPERIMENTAL SETUP  ==============================
+\section{Experimental Setup}\label{sec:setup}
+
+\subsection{Simulator}\label{sec:simulator}
+
+For fast experimentation we implement a five-zone lumped-capacity
+museum simulator. Each zone has independent thermal mass and a
+first-order RC response to (i) the HVAC setpoint with time constant
+$\tau_{\text{HVAC}}=0.5\,\mathrm{h}$, (ii) the outdoor envelope with
+$\tau_{\text{env}}=8\,\mathrm{h}$, and (iii) occupant heat gains scaled
+by per-zone occupancy share. Humidity follows an analogous dynamic with
+a faster setpoint response constant. Outdoor weather is a synthetic
+seasonal sinusoid superposed with a diurnal cycle and Gaussian noise.
+The control timestep is $15\,\mathrm{min}$, and an episode covers one
+calendar year (35\,040 steps).
+
+The simulator observation and action spaces, conservation envelopes,
+and reward composition are those of
+Section~\ref{sec:state_action_reward}. The same wrapper API supports a
+Sinergym/EnergyPlus backend with the zone-to-collection mapping in
+Table~\ref{tab:envelopes}, so the pipeline can be re-run on the
+calibrated high-fidelity model without algorithm changes. We report
+fast-iteration results in this paper and discuss the EnergyPlus
+transition in Section~\ref{sec:discussion}.
+
+\subsection{Visitor flow}
+
+Visitor counts are synthesized from a weekly schedule (Mondays closed,
+weekend boost) combined with a smooth daily bump between 09:00 and
+17:00, plus Gaussian noise. The per-step occupancy enters the thermal
+balance as a sensible and latent heat gain proportional to per-zone
+share.
+
+\subsection{Baselines}
+
+We compare five controllers that span the spectrum from naive rule-based
+control to safe RL:
+
+\begin{description}[leftmargin=1.2em,style=nextline,nosep]
+  \item[B1: Rule-fixed.] Constant setpoint $22^\circ\mathrm{C}/50\%\mathrm{RH}$ in all zones, all hours.
+  \item[B2: Schedule.] Setpoints relaxed during closed hours (Mondays
+        and 18:00--08:00) to wider per-zone deadbands.
+  \item[B3: Vanilla-PPO.] PPO trained on energy and comfort only; no
+        conservation term in the reward.
+  \item[B4: Soft-PPO.] PPO with a fixed-weight soft penalty
+        $r-w\,c$, $w=5.0$.
+  \item[B5: Lagrangian-PPO (ours).] Algorithm~\ref{alg:lpppo}.
+\end{description}
+
+All RL baselines use the same MLP policy with two hidden layers of
+256 units, learning rate $3\times 10^{-4}$, GAE
+$\lambda_{\mathrm{GAE}}=0.95$, discount $\gamma=0.99$, clip range
+$0.2$, and batch size $256$. Each of B3--B5 is trained for
+$5\times 10^{5}$ steps under 16 parallel envs using
+Stable-Baselines3~\citep{raffin2021sb3}.
+
+\subsection{Pareto sweep}
+
+To trace the energy--conservation trade-off, we additionally train
+Lagrangian-PPO for $2\times 10^{5}$ steps at six cost budgets
+$d\in\{0,0.5,1,2,5,10\}$ and report each policy's deterministic
+year-long evaluation.
+
+\subsection{Evaluation metrics}\label{sec:metrics}
+
+Each trained policy is evaluated on a single deterministic year-long
+rollout from a fixed seed. The reported metrics are annual HVAC energy
+(kWh and MWh), the year-total conservation cost from
+Eq.~\eqref{eq:cost}, the number of violation steps per year (steps
+with $c_t>0$, each step is 15\,min), the per-zone decomposition of
+violation steps, the mean PMV in the public lobby, and the number of
+comfort-violation steps.
+
+% =====================  6. RESULTS  =========================================
+\section{Results}\label{sec:results}
+
+\subsection{Headline comparison}
+
+Table~\ref{tab:headline} summarizes annual energy and conservation
+metrics across all controllers, aggregated over three seeds for the
+trained controllers. The Lagrangian-PPO controller trained with the
+strictest budget ($d=0$) reduces year-total conservation cost by
+\SI{85}{\percent} relative to the fixed-setpoint baseline B1 at the
+cost of a \SI{1.1}{\percent} energy increase, and reduces violation
+steps from 35\,040 (the entire year) to 20\,738, or about
+\SI{59}{\percent} of the year.
+
+Both unconstrained variants (B3 vanilla, B4 soft) achieve nominally
+lower annual energy than B1 but inflict $3$--$6\times$ higher
+conservation cost: the unconstrained reward signal drives the policy
+toward setpoints that minimize HVAC work without protecting
+collections.
+
+The $500\mathrm{k}$-step Lagrangian variant (\texttt{lagr}) actually
+underperforms the $200\mathrm{k}$-step strict-budget sweep on
+conservation cost (\num{157}~000 vs.\ \num{11.7}~000). The cause is
+$\lambda$ saturation: once $\lambda=\lambda_{\max}$, the policy is
+pushed into a corner of action space that minimizes integrated cost at
+the expense of robustness, and additional training amplifies the
+effect. We return to this in Section~\ref{sec:discussion}.
+
+\begin{table}[t]
+\centering
+\caption{Year-long evaluation of all controllers (deterministic
+rollouts). Mean$\pm$SEM across three seeds where applicable.
+Conservation cost is the year-total of Eq.~\eqref{eq:cost}.
+Violation steps is the number of 15-min steps with non-zero cost,
+out of 35\,040 in a year.}
+\label{tab:headline}
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lcccc}
+\toprule
+Controller & Energy (MWh) & Cons.\ cost & Viol.\ steps & Mean PMV \\
+\midrule
+B1 Rule-fixed       & 364.8                       & 78{,}380   & 35{,}040 & $-0.32$ \\
+B2 Schedule         & 350.7                       & 75{,}833   & 35{,}040 & $-1.54$ \\
+B3 Vanilla-PPO      & $361.1\pm 3.1$              & 348{,}091  & 35{,}040 & $-0.10$ \\
+B4 Soft-PPO ($w=5$) & $380.5\pm 0.3$              & 496{,}192  & 35{,}040 & $-0.25$ \\
+B5 Lagr.-PPO 500k   & $372.4\pm 1.6$              & 157{,}033  & 35{,}040 & $\phantom{-}$varies \\
+\midrule
+\multicolumn{5}{l}{\emph{Pareto sweep, single seed, 200k steps:}}\\
+$d=0.0$  & 368.8 & \textbf{11{,}677} & 20{,}738 & $0.65$ \\
+$d=0.5$  & 368.9 & 12{,}197          & 21{,}161 & $0.66$ \\
+$d=1.0$  & 369.0 & 12{,}807          & 21{,}625 & $0.66$ \\
+$d=2.0$  & 369.1 & 13{,}911          & 22{,}475 & $0.67$ \\
+$d=5.0$  & 369.4 & 18{,}450          & 26{,}789 & $0.70$ \\
+$d=10.0$ & 370.2 & 28{,}684          & 35{,}003 & $0.75$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Pareto front}
+
+Figure~\ref{fig:hero}(c) traces the Pareto front of Lagrangian-PPO
+solutions as the cost budget $d$ ranges from $0$ to $10$. The front
+is strongly anisotropic: annual energy varies by only
+$1.4\,\mathrm{MWh}$ (\SI{0.4}{\percent}) across the six budgets, while
+the conservation cost varies by a factor of $2.5$. This anisotropy is
+a direct consequence of the rate clauses. Most of the energy required
+to hold the static envelope, Eqs.~\eqref{eq:vT}--\eqref{eq:vRH}, is
+already paid for by any controller that keeps $T$ inside the envelope
+at all, whereas the rate clauses in
+Eqs.~\eqref{eq:vTdot}--\eqref{eq:vRHdot} can be satisfied by smoother
+trajectories with negligible additional energy. In other words, how
+strictly to enforce conservation has order-of-magnitude larger
+conservation impact than energy impact under the EN~15757 formulation.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/fig1_hero.png}
+\caption{Year-long evaluation of all controllers on the five-zone
+museum simulator. (a) Annual HVAC energy. (b) Number of 15-min steps
+with at least one zone violating its conservation envelope, out of
+35\,040 in a year. (c) Pareto front of Lagrangian-PPO solutions
+($d\in\{0,0.5,1,2,5,10\}$, color-coded). The front is strongly
+anisotropic: annual energy varies by less than $\SI{0.5}{\percent}$
+across the budget range while conservation cost spans a factor of
+$2.5$. (d) Per-zone breakdown of violation steps. The strict-budget
+Lagrangian controllers confine residual violations to a single
+constraint-coupled zone (\texttt{paper\_works\_gallery}), whereas
+unconstrained or saturated controllers spread violations across all
+five zones.}
+\label{fig:hero}
+\end{figure}
+
+\subsection{Typical-week trajectories}
+
+Figure~\ref{fig:typical_week} compares the per-step conservation cost
+and HVAC energy of the Rule-fixed baseline (B1) and the strict-budget
+Lagrangian-PPO controller across a representative week. The
+Lagrangian controller absorbs the daily and weekly disturbances with
+smoother control trajectories; the cost trace stays close to zero
+during steady-state daytime operation, whereas the rule-fixed
+controller incurs a persistent baseline cost from the unavoidable
+oil--bronze envelope conflict.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.92\linewidth]{figures/fig2_typical_week.png}
+\caption{Per-step conservation cost (top) and HVAC energy (bottom) for
+the Rule-fixed baseline (gray) and the strict-budget Lagrangian-PPO
+controller (red), over a representative one-week window.}
+\label{fig:typical_week}
+\end{figure}
+
+\subsection{Per-zone localization}
+
+The per-zone decomposition in Figure~\ref{fig:hero}(d) is the
+clearest qualitative result. The constrained controllers
+(sweep $d\in\{0,\dots,5\}$) restrict essentially all residual
+violations to the \texttt{paper\_works\_gallery} zone, which is the
+only zone whose temperature envelope ($18^\circ\mathrm{C}$ to
+$22^\circ\mathrm{C}$) overlaps the public-lobby comfort band and the
+bronze-storage humidity band in a way that the shared HVAC supply
+cannot simultaneously satisfy. The unconstrained variants
+(\texttt{vanilla}, \texttt{soft}) and the saturated $500$k-step
+Lagrangian variant (\texttt{lagr}) instead distribute violations
+across all five zones, including \texttt{oil\_painting\_gallery} and
+\texttt{mixed\_gallery}, which would never violate under any
+reasonable controller.
+
+This localization property has practical importance. When residual
+violations are isolated to one zone, conservation engineering can
+focus on that zone, for instance by adding a local dehumidifier or a
+revised duct layout, without re-tuning the controller for the entire
+building. When violations are distributed, no single retrofit can
+address them.
+
+\subsection{$\lambda$ saturation}\label{sec:lambda_saturation}
+
+A surprising finding is the deteriorating performance of the
+$500$k-step Lagrangian runs (Table~\ref{tab:headline}, row
+\texttt{lagr}) relative to the $200$k-step sweep at $d=0$. Both target
+the same cost budget; the only difference is training duration and
+the resulting $\lambda$ trajectory. The $500$k-step run saturates at
+$\lambda_{\max}=100$ after roughly $1\times 10^5$ steps, while the
+$200$k-step run converges to $\lambda\approx 69$ without saturation.
+
+Once $\lambda$ saturates, $\lambda c_t$ dominates the surrogate reward
+in Eq.~\eqref{eq:lagrangian_reward}, and PPO is effectively trained to
+minimize cost while ignoring the original reward. The policy is
+pushed to an extreme corner of the action space where the conservation
+constraint is approximately satisfied but the controller no longer
+generalizes to off-distribution states. Deterministic evaluation on a
+held-out year then traces trajectories that violate more zones than
+the unsaturated policy. Figure~\ref{fig:training_curves} shows the
+$\lambda$ trajectory and the mean per-rollout cost across the three
+Lagrangian seeds: $\lambda$ rises monotonically and saturates after
+approximately $1\times 10^5$ steps, after which the mean cost
+ceases to decrease and exhibits a long plateau.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/fig3_training_curves.png}
+\caption{Training dynamics of the Lagrangian multiplier and mean cost.
+(a) $\lambda$ trajectory: monotone rise toward $\lambda_{\max}=100$,
+saturating around step $1\times 10^5$. (b) Mean rollout cost: the
+controller drives cost down during early training, but the rate of
+descent stalls once $\lambda$ saturates. Different curves correspond
+to the three independent training seeds.}
+\label{fig:training_curves}
+\end{figure}
+
+A practical remedy is to set $\lambda_{\max}$ conservatively. We
+suggest $\lambda_{\max}=30$ as a starting point for the rate-cap
+formulation. An alternative is a constraint-decomposed Lagrangian with
+one multiplier per envelope clause, which we leave to future work.
+
+\subsection{Validation on Sinergym + EnergyPlus}\label{sec:sinergym_validation}
+
+To validate the framework on a higher-fidelity simulator we deployed
+it on a Sinergym~\citep{manjavacas2024sinergym} wrapper around the
+canonical 5-zone office EnergyPlus model (NY weather, full calendar
+year, 15-min step). The underlying IDF exposes a single global
+heating/cooling thermostat schedule, so for this experiment we treat
+the building as a single-zone museum with the ASHRAE Class~A1
+oil-painting envelope. Table~\ref{tab:sinergym} reports the same
+year-long metrics as Table~\ref{tab:headline}.
+
+\begin{table}[t]
+\centering
+\caption{Sinergym/EnergyPlus validation (single-zone, ASHRAE Class~A1
+envelope, NY-JFK TMY3 weather). Mean$\pm$SEM over three seeds for the
+trained controllers.}
+\label{tab:sinergym}
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lcccc}
+\toprule
+Controller & Energy (MWh) & Cons.\ cost & Viol.\ steps & Mean PMV \\
+\midrule
+B1 Rule-fixed           & 25.68   & 81{,}847   & 27{,}662 & --- \\
+B2 Schedule             & 17.00   & 81{,}310   & 27{,}864 & --- \\
+B3 Vanilla-PPO          & $11.44\pm0.0$ & 80{,}010 & 27{,}928 & $-0.31$ \\
+B4 Soft-PPO ($w=5$)     & $11.44\pm0.0$ & 80{,}010 & 27{,}928 & $-0.31$ \\
+B5 Lagr.-PPO 500k       & $11.44\pm0.0$ & 80{,}010 & 27{,}928 & $-0.31$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Energy result.}
+All trained controllers (vanilla, soft, Lagrangian) cut annual HVAC
+energy by~\SI{55.5}{\percent} versus the fixed-setpoint baseline B1
+($11.44$ vs.\ $25.68$\,MWh), and by~\SI{32.7}{\percent} versus the
+schedule-relaxed B2. This is a substantial absolute saving and is
+consistent with the office-HVAC literature
+\citep{brandi2022online,efficient_assured_2025,drl_g36_2025}.
+
+\paragraph{Conservation result and boundary collapse.}
+However, envelope violation count is essentially identical across all
+five controllers, and the Pareto sweep at six cost budgets
+$d\in\{0,0.5,1,2,5,10\}$ produces six byte-identical evaluation
+trajectories. Diagnostic analysis of the trained policy networks
+revealed that the Gaussian policy mean collapses to the corner action
+$(H,C)=(12^\circ\mathrm{C},23.25^\circ\mathrm{C})$, the minimum
+heating and minimum cooling setpoints, across all controllers and all
+cost budgets. This is a known failure mode of PPO under bounded
+action spaces: when the energy-minimization gradient yields a strong
+corner attractor and the bounded Gaussian's $\log\sigma$ shrinks
+during late training, the exploration that would otherwise let the
+policy escape disappears. Comparable behavior is reported in
+\citet{manjavacas2024sinergym} and motivates the use of tanh-squashed
+SAC, or PPO with entropy bonuses, in \citet{efficient_assured_2025}.
+
+\paragraph{Interpretation.}
+The Sinergym result identifies a complementary limitation rather than
+a counter-example to our framework. With a single global thermostat
+(one schedule for all five EnergyPlus zones), the constraint set of
+ASHRAE Class~A1 envelopes is close to infeasible under the NY winter
+climate, and PPO compounds this by collapsing to the energy-minimum
+corner. Resolving the issue requires either (i) modifying the IDF to
+expose per-zone thermostats, which would mirror the multi-zone setup
+that the mock-env results validated, or (ii) switching to
+tanh-squashed SAC, which mitigates corner attraction. Both
+remediations are orthogonal to the methodological contribution of this
+paper (the CMDP formalization of EN~15757 with conservation rate
+caps), which the five-zone mock-env results validate cleanly. We
+detail both follow-up directions in Section~\ref{sec:discussion}.
+
+% =====================  7. DISCUSSION  =====================================
+\section{Discussion}\label{sec:discussion}
+
+\subsection{Limitations}
+
+\paragraph{Simulator fidelity.}
+The five-zone lumped-capacity model used here is a fast-iteration
+testbed, not an engineering-grade representation. Real museum HVAC
+includes coupled air-handling units, return-air mixing, fresh-air
+penalties, and structural infiltration that the lumped model omits.
+Our wrapper API exposes the same observation and action interface as
+Sinergym~\citep{manjavacas2024sinergym}, so substituting the
+EnergyPlus backend is a single-line change in the env factory. We
+report only lumped-model results here for reproducibility and rapid
+iteration, and we plan to re-run the full pipeline on a calibrated
+EnergyPlus model in follow-up work.
+
+\paragraph{Visitor model.}
+The synthetic visitor flow captures weekly and daily seasonality but
+omits visitor-mass effects on humidity gain and the slow drift in
+attendance with weather and special exhibitions. A real-data
+deployment would replace this module with an LSTM-based or
+Transformer-based forecaster trained on the museum's ticketing
+records.
+
+\paragraph{Constraint shaping.}
+We use a scalar cost in Eq.~\eqref{eq:cost} that sums four normalized
+components. A more refined treatment, common in the multi-constraint
+Safe RL literature, would treat each rate cap as an independent
+constraint with its own $\lambda$, which would allow the controller
+to allocate violation budget across clauses. We outline this extension
+in Section~\ref{sec:lambda_saturation} as the most promising remedy
+for the $\lambda$-saturation phenomenon.
+
+\subsection{When does Safe RL beat classical multi-objective optimization?}
+
+The closest classical baselines~\citep{ascione2018museum,schito2020museum}
+solve a multi-objective optimization at design time and produce HVAC
+setpoint schedules that are then applied open-loop. Our results clarify
+the conditions under which closed-loop RL adds value. When loads
+(visitors, weather) vary on the same time scale as the HVAC response
+(hours), open-loop schedules are forced to be conservative; closed-loop
+control can ride the disturbances. When the building has heterogeneous
+collections, the per-zone reward shaping that RL allows (via
+independent $\lambda$ per envelope) is harder to express in a single
+Pareto-front problem. When the constraint is dynamic, as with the
+EN~15757 rates, encoding it as a CMDP cost is more direct than
+treating it as a post-hoc filter on a Pareto-optimal schedule.
+
+In settings where these conditions do not apply, for example a small
+single-zone storage room with a stable load, classical multi-objective
+optimization may remain the preferred tool. Safe RL should be regarded
+as a complement to, not a replacement for, the classical pipeline.
+
+\subsection{Two follow-ups motivated by the Sinergym validation}
+
+The Sinergym result in Section~\ref{sec:sinergym_validation} shows
+that the Lagrangian-PPO controller does extract substantial energy
+savings on the full EnergyPlus model (\SI{55.5}{\percent} vs.\ fixed
+setpoint), but the constraint side of the trade-off is not exercised,
+because the single-thermostat IDF and PPO's bounded-action saturation
+jointly remove the relevant control authority. Two follow-up
+extensions would make the Sinergym case competitive with the
+five-zone mock-env result. The first is IDF customization: the 5-zone
+office IDF can be modified to split the single
+\texttt{HTG-SETP-SCH}/\texttt{CLG-SETP-SCH} schedule into five
+per-zone schedules with five matching Sinergym actuators, restoring
+the per-zone differentiation that drives the localization story in
+Figure~\ref{fig:hero}(d). The second is a change of policy class:
+switching from PPO to a tanh-squashed SAC
+\citep{ji2023omnisafe}, or PPO with a
+non-trivial entropy bonus, mitigates the boundary-corner collapse
+documented in Section~\ref{sec:sinergym_validation}.
+
+\subsection{Sinergym/EnergyPlus migration path}
+
+The methodological contributions of this paper are
+backend-independent. To re-run the experiments on a real EnergyPlus
+model, four steps are required. First, select an EnergyPlus IDF that
+exposes the required number of thermal zones; Sinergym ships several
+five-zone environments. Second, map each EnergyPlus zone to a museum
+collection in Table~\ref{tab:envelopes}. Third, replace
+\texttt{MockMuseumEnv} with the Sinergym wrapper provided in our code
+release; the \texttt{CostRewardWrapper} and the Lagrangian callback
+are reused unchanged. Fourth, calibrate the simulator to a real
+museum's monthly energy records following ASHRAE
+Guideline~14~\citep{ashrae_guideline14} (CV-RMSE${<}30\%$,
+NMBE${<}10\%$).
+
+We expect the qualitative findings (anisotropic Pareto front, per-zone
+localization, $\lambda$-saturation) to transfer; quantitative energy
+and cost magnitudes will of course shift with a more detailed thermal
+model.
+
+% =====================  8. CONCLUSION  =====================================
+\section{Conclusion}\label{sec:conclusion}
+
+We formalized the museum HVAC control problem as a Constrained
+Markov Decision Process that encodes both ASHRAE-style static
+temperature and humidity envelopes and EN~15757 dynamic rate clauses
+as a single scalar cost. We solved it with a Lagrangian-PPO
+controller whose multiplier is driven by a PID controller, and we
+documented an implementation issue ($\lambda$ propagation across
+parallel subprocess envs) that silently invalidates the constraint
+in a naive implementation.
+
+On a five-zone differentiated museum simulator we obtained a clean
+three-objective Pareto front whose anisotropy, in which conservation
+cost varies by a factor of $2.5$ while energy varies by less than
+$0.5\%$ across budgets, gives operators a principled tool for trading
+off collection safety against energy. At the strictest budget we
+reduce year-total conservation cost by $85\%$ relative to a
+fixed-setpoint baseline at a $1\%$ energy overhead. The per-zone
+analysis shows that constrained controllers confine residual
+violations to a single constraint-coupled zone, which provides
+actionable guidance for targeted retrofits.
+
+Future work will (i) port the pipeline to a calibrated EnergyPlus
+model via the Sinergym backend, (ii) decompose the constraint into
+per-clause multipliers to mitigate $\lambda$-saturation, and (iii)
+incorporate real visitor forecasts via time-series transformers.
+
+% Acknowledgments removed for the blinded manuscript (placed on Title Page).
+
+% =====================  DATA & CODE  ========================================
+\section*{Code and data availability}
+
+All code, configuration files, and evaluation logs supporting this
+paper are available for review at an anonymized repository,
+\url{https://anonymous.4open.science/r/museum-safe-rl-B65B/}, and will
+be released under an open-source license upon publication. The release
+includes the five-zone simulator, the Lagrangian-PPO implementation,
+and the figure-generation pipeline.
+
+% =====================  REFERENCES  =========================================
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

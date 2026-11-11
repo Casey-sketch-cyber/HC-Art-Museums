@@ -1,0 +1,61 @@
+algo: lagrangian_ppo   # one of: lagrangian_ppo, soft_penalty_ppo, vanilla_ppo, rule_based
+
+env:
+  name: museum-mock-v0   # use 'museum-sinergym-v0' for real EnergyPlus
+  episode_length: 35040  # 1 year @ 15-min steps; for mock env, this is 1 year of synthetic data
+  weather: hot           # ignored by mock env; pass to sinergym
+
+ppo:
+  total_timesteps: 500000
+  n_envs:          16
+  n_steps:         512
+  batch_size:      256
+  n_epochs:        10
+  learning_rate:   3.0e-4
+  gamma:           0.99
+  gae_lambda:      0.95
+  clip_range:      0.2
+  ent_coef:        0.0
+  vf_coef:         0.5
+  max_grad_norm:   0.5
+  policy_kwargs:
+    net_arch: [256, 256]
+
+sac:
+  # tanh-squashed SAC with automatic entropy tuning. The entropy bonus and the
+  # squashed Gaussian provide the exploration that bounded-action PPO loses to
+  # the boundary-corner collapse documented in the Sinergym validation.
+  total_timesteps: 200000
+  n_envs:          1
+  buffer_size:     200000
+  learning_starts: 2000
+  batch_size:      256
+  train_freq:      256     # steps between gradient phases and lambda updates
+  gradient_steps:  256
+  learning_rate:   3.0e-4
+  gamma:           0.99
+  tau:             0.005
+  ent_coef:        auto
+  policy_kwargs:
+    net_arch: [256, 256]
+
+lagrangian:
+  # PID controller on the Lagrange multiplier lambda. d(lambda)/dt is proportional
+  # to (mean constraint violation - target). Target=0 enforces "zero average cost".
+  cost_limit:    0.0
+  lambda_init:   1.0
+  lambda_lr_p:   0.05
+  lambda_lr_i:   0.0005
+  lambda_lr_d:   0.0
+  lambda_min:    0.0
+  lambda_max:    100.0
+
+eval:
+  n_eval_episodes: 3
+  deterministic:   true
+  seed:            42
+
+experiment:
+  seeds: [0, 1, 2]
+  log_dir:    logs
+  result_dir: results
