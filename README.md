@@ -1,5 +1,10 @@
 # Museum Safe RL — HVAC Co-Optimization
 
+> **Status (2026-11-12):** the paper described below was rejected and is archived. The project is being
+> redesigned for iScience around object-response (damage-aware) climate control. See
+> `docs/PLAN_ISCIENCE.md`, `docs/TASKS.md` and `docs/REVIEW_2026-11-12.md`. The rest of this README
+> documents the legacy code.
+
 Code accompanying the paper *"Safe Reinforcement Learning with Conservation-Aware
 Hard Constraints for HVAC Control in Art Museums: Formalizing EN 15757 Rate Limits
 as a Constrained MDP"*.

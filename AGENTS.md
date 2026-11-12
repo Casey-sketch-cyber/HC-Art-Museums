@@ -6,6 +6,16 @@
 
 博物馆暖通空调的安全强化学习实验，对应论文 *Safe Reinforcement Learning with Conservation-Aware Hard Constraints for HVAC Control in Art Museums*。代码把 EN 15757 / ASHRAE 的分区温湿度边界和变化速率写成约束马尔可夫决策过程的成本，用 Lagrangian PPO 在降低暖通能耗和访客不舒适的同时遵守这些硬约束，并与规则控制、时间表控制、软惩罚 PPO、无约束 PPO 比较。
 
+## 当前方向（2026-11-12 起，优先于上面的概述）
+
+上面一段描述的是**旧稿**。旧稿被拒，复核后发现其核心结论不成立（见 `docs/REVIEW_2026-11-12.md`）。项目现在按新方案重做，目标期刊是 iScience：
+
+- 方案：`docs/PLAN_ISCIENCE.md`
+- 可认领的任务和验收标准：`docs/TASKS.md`
+- 公开数据集：`docs/DATASETS.md`
+
+要点：约束从"空气温湿度包络"改为"文物自身的损伤风险"；强化学习不再是卖点，只是对比方法之一；不得再使用"硬约束""EN 15757 速率上限"等表述；旧稿和 `experiments_archive/` 里的结果不进新稿。`PLAN_ISCIENCE.md` 第 10 节的诚信规则对所有 AI 有约束力。
+
 ## 技术栈
 
 - Python
@@ -50,8 +60,8 @@
 
 ## 工作规则（所有 AI 必须遵守）
 
-1. **开始前**：先读 `docs/PROGRESS.md`、`docs/ARCHITECTURE.md`、`docs/DECISIONS.md`。
-2. **分支**：每个任务新建分支，命名为 `<工具名>/<任务简述>`，例如 `codex/add-login`。不要直接改 `main`。
+1. **开始前**：先读 `docs/PROGRESS.md`、`docs/ARCHITECTURE.md`、`docs/DECISIONS.md`、`docs/PLAN_ISCIENCE.md`，再到 `docs/TASKS.md` 按其中的流程认领任务。
+2. **分支与合并**：可以直接提交到 `main`。改动较大，或可能有其他 AI 同时在改时，用分支 `<工具名>/<任务简述>`（例如 `codex/add-login`）；验证通过后自行合并到 `main`，能开 PR 就开 PR 并立即合并，不需要等用户审核。推送或合并前先同步最新的 `main`（`git pull --rebase`），冲突解决不了就停下问用户。不要强制推送 `main`。
 3. **范围**：只改与当前任务相关的文件，不要顺手做大规模重构或格式化。
 4. **依赖**：不要随意新增依赖；确实需要时，在提交说明里写明理由。
 5. **安全**：不要提交密钥、`.env`、大文件、AI 工具的缓存或对话记录。
