@@ -6,12 +6,12 @@
 
 1. 读 `AGENTS.md`、`docs/PLAN_ISCIENCE.md`、`docs/PROGRESS.md`。
 2. 在下面的"状态总表"里找一个状态为"待办"且依赖都已"完成"的任务。
-3. 新建分支 `<工具名>/<任务编号>-<简述>`，例如 `codex/S1.1-rom-model`。在同一次提交里把总表中该任务的状态改成"进行中（工具名，日期）"。
+3. 先认领：把总表中该任务的状态改成"进行中（工具名，日期）"，单独提交并立即推送到 `main`，让其他 AI 看到。然后开始做，可以直接在 `main` 上做，也可以用分支 `<工具名>/<任务编号>-<简述>`（例如 `codex/S1.1-rom-model`）。
 4. 按任务卡的"产出"和"验收"做。验收项全部满足才算完成。
-5. 结束时更新总表状态、`docs/PROGRESS.md`，重要取舍写进 `docs/DECISIONS.md`，然后提 PR。
+5. 结束时更新总表状态、`docs/PROGRESS.md`，重要取舍写进 `docs/DECISIONS.md`，然后推送到 `main`；用了分支的，自行合并到 `main`，不需要等用户审核（见 `AGENTS.md` 工作规则第 2 条）。
 6. 遇到关口（G1、G2、G3）或验收达不到：停下来，把数字写进 `docs/PROGRESS.md`，等用户决定。不要自行改验收标准。
 
-一个 PR 只做一个任务。不要顺手做别的任务。
+一次只做一个任务，不要顺手做别的任务。自动合并不改变第 6 条：关口和验收达不到时仍然要停下等用户。
 
 ## 通用约定
 
@@ -19,7 +19,7 @@
 - 测试放 `tests/`，用 `pytest`。`pytest` 是开发依赖，写进 `requirements-dev.txt`。
 - 结果汇总以 JSON 或 Markdown 提交到 `results_summary/<任务编号>/`，图用 SVG。`.gitignore` 忽略了 `*.csv`、`*.png`、`*.pdf`，原始结果仍放 `results/` 不提交。
 - 每个结果文件记录：提交号、配置文件、随机种子、气象文件名。
-- 新增依赖要在 PR 说明里写理由。预期会新增的只有 `pytest`；S1.2 需要 EnergyPlus 的 Python 接口或 Sinergym，沿用 `setup.sh`。
+- 新增依赖要在提交说明里写理由。预期会新增的只有 `pytest`；S1.2 需要 EnergyPlus 的 Python 接口或 Sinergym，沿用 `setup.sh`。
 - 所有文献取值登记来源（文献、页码或表号）。
 
 ## 状态总表

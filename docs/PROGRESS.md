@@ -10,7 +10,7 @@
 
 ## 待办
 
-- [ ] 用户合并方案 PR 后，从 `docs/TASKS.md` 的 S0.1、S0.2、S0.3、S2.1、S5.2 开始（这几项没有前置依赖，可并行）
+- [ ] 从 `docs/TASKS.md` 的 S0.1、S0.2、S0.3、S2.1、S5.2 开始（这几项没有前置依赖，可并行）
 - [ ] 开始 S1 前，把实际使用的机器配置（CPU 核数、内存、GPU）记到本文件
 - [ ] 关口 G1（任务 S3.4）出结果后停下，等用户确认走路线 A 还是 B
 - [ ] 用户如能提供之前两次投稿的审稿意见，放到 `docs/reviews/`，并对照调整优先级
@@ -31,6 +31,7 @@
 - **完成**：审查旧稿和代码，查相关文献，写出 iScience 重构方案。新增 `docs/PLAN_ISCIENCE.md`、`docs/TASKS.md`、`docs/REVIEW_2026-11-12.md`、`docs/DATASETS.md`、`scripts/check_perzone_baseline.py`；更新 `AGENTS.md`、`README.md`、`docs/DECISIONS.md`。
 - **验证**：在 mock 环境运行了 `scripts/check_perzone_baseline.py --seeds 0 1 2`，结果见 `docs/REVIEW_2026-11-12.md`。运行环境没有安装 gymnasium，用了一个只含 `Env` 和 `spaces.Box` 的空壳模块代替；`MockMuseumEnv` 的动力学不依赖 gymnasium 的实现。**没有**运行 README 的 mock 训练冒烟命令（缺 stable-baselines3、torch），**没有**运行 EnergyPlus。
 - **未完成**：所有新任务。公开数据集未下载。旧 bib 的 49 条未逐条复核。
+- **规则变更**：按用户要求，`AGENTS.md` 工作规则第 2 条改为允许直接提交 `main`、分支自行合并；同样的修改已同步到 `Casey-sketch-cyber/ai-workflow` 的模板和 `agent-session` 流程。
 - **注意 / 坑**：`.gitignore` 忽略 `*.csv`、`*.png`、`*.pdf`，结果汇总请用 JSON、Markdown、SVG。现有脚本名里的 T2、T3 是旧实验的编号，与 `TASKS.md` 的任务编号（S0.1 等）无关。
 
 ### 2026-11-10 · cursor · main
