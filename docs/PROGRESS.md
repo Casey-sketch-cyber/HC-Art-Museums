@@ -28,7 +28,7 @@
 ## 工作记录
 
 ### 2026-11-12 · cursor · cursor/S0.1-mock-baselines
-- **完成**：把 `scripts/check_perzone_baseline.py` 的种子 0 检查写成 `tests/test_mock_baselines.py`，并加入 `requirements-dev.txt`。在 `172.21.0.20` 上用 CPU 跑 `pytest tests/test_mock_baselines.py`，2 项通过，用时 30.44 秒。没有使用显卡。
+- **完成**：把 `scripts/check_perzone_baseline.py` 的种子 0 检查写成 `tests/test_mock_baselines.py`，并加入 `requirements-dev.txt`。在实验室局域网主机上用 CPU 跑 `pytest tests/test_mock_baselines.py`，2 项通过，用时 30.44 秒。没有使用显卡。
 - **未完成**：S0.2 及之后的任务。
 - **注意 / 坑**：测试只调用 mock 环境，不用 GPU。服务器 GPU 1 上已有别的 Python 进程在跑（约 22 GB、利用率约 50%），这次没有占用显卡。
 
