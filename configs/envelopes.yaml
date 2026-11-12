@@ -1,0 +1,119 @@
+# 空气包络，供以后的 F1–F3 使用。数值说明和出处见 docs/STANDARDS.md。
+# 这不是某一栋馆的设定点。年均值必须取该藏品已经适应的历史年平均，不能默认 21°C / 50%RH。
+# ASHRAE 四个等级的数字来自加拿大文物保护研究所对 ASHRAE 2023 的转述，手册原文未打开，见 STANDARDS.md。
+
+provenance:
+  checked_on: 2026-11-12
+  ashrae_access: secondhand
+  ashrae_secondhand_source: "Canadian Conservation Institute, ASHRAE types of control, Stefan Michalski. https://www.canada.ca/en/conservation-institute/services/preventive-conservation/climate-guidelines/ashrae-types-control.html"
+  ashrae_secondhand_says: "All parameters and statements of benefits and risks are as given in ASHRAE (2023)."
+  bizot_source: "https://www.cimam.org/documents/238/Bizot_Green_Protocol_-_2023_refresh_-_Sept_2023.pdf section 4, September 2023 refresh"
+
+# CCI 转述 ASHRAE 2019/2023：短于这些时长的波动算短期波动。这是时间尺度定义，不是一条固定的每小时变化额度。
+short_term_means_shorter_than:
+  temperature_days: 7
+  relative_humidity_days: 30
+
+# CCI 对图的说明：长期外限约束的是设定值（白线），不是叠加上去的短期波动尖峰。
+outer_limit_applies_to: seasonal_setpoint_not_short_term_peaks
+
+envelopes:
+  ASHRAE_AA:
+    control: precision, no seasonal change in RH
+    temperature:
+      annual_average: historic annual average; in public display areas human comfort temperatures can apply
+      seasonal_increase_C: 5
+      seasonal_decrease_C: 5
+      short_term_plus_minus_C: 2
+      outer_min_C: 10
+      outer_max_C: 25
+    relative_humidity:
+      annual_average: historic annual average
+      seasonal_increase_percent: 0
+      seasonal_decrease_percent: 0
+      short_term_plus_minus_percent: 5
+      outer_min_percent: 35
+      outer_max_percent: 65
+
+  ASHRAE_A1:
+    control: precision, seasonal changes in temperature and RH
+    temperature:
+      annual_average: historic annual average; in public display areas human comfort temperatures can apply
+      seasonal_increase_C: 5
+      seasonal_decrease_C: 10
+      short_term_plus_minus_C: 2
+      outer_min_C: 10
+      outer_max_C: 25
+    relative_humidity:
+      annual_average: historic annual average
+      seasonal_increase_percent: 10
+      seasonal_decrease_percent: 10
+      short_term_plus_minus_percent: 5
+      outer_min_percent: 35
+      outer_max_percent: 65
+
+  ASHRAE_A2:
+    control: precision, seasonal changes in temperature only
+    temperature:
+      annual_average: historic annual average; in public display areas human comfort temperatures can apply
+      seasonal_increase_C: 5
+      seasonal_decrease_C: 10
+      short_term_plus_minus_C: 2
+      outer_min_C: 10
+      outer_max_C: 25
+    relative_humidity:
+      annual_average: historic annual average
+      seasonal_increase_percent: 0
+      seasonal_decrease_percent: 0
+      short_term_plus_minus_percent: 10
+      outer_min_percent: 35
+      outer_max_percent: 65
+
+  ASHRAE_B:
+    control: limited control, seasonal RH change and large seasonal temperature change
+    temperature:
+      annual_average: historic annual average
+      seasonal_increase_C: 10
+      # 表中写的是 decrease by up to 20°C，不是必须降满 20°C。
+      seasonal_decrease_C: 20
+      seasonal_decrease_is_upper_bound: true
+      short_term_plus_minus_C: 5
+      # 表中只给了上限 ≤30°C，没有数字形式的下限。
+      outer_min_C: null
+      outer_max_C: 30
+    relative_humidity:
+      annual_average: historic annual average
+      seasonal_increase_percent: 10
+      seasonal_decrease_percent: 10
+      short_term_plus_minus_percent: 10
+      outer_min_percent: 30
+      outer_max_percent: 70
+
+  Bizot_2023:
+    control: fixed band for many hygroscopic objects; not an annual-average-plus-offset rule
+    applies_to: many classes of object containing hygroscopic material, such as canvas paintings, textiles, ethnographic objects
+    more_sensitive_objects: require tighter RH control after a conservator's evaluation
+    temperature:
+      annual_average: not specified; the guideline states a range, not an offset from a historic annual average
+      seasonal_increase_C: null
+      seasonal_decrease_C: null
+      # 原文要求 stable temperature，但没有另给一个 ±°C 的短期幅度。
+      short_term_plus_minus_C: null
+      outer_min_C: 16
+      outer_max_C: 25
+    relative_humidity:
+      annual_average: not specified; the guideline states a range
+      seasonal_increase_percent: null
+      seasonal_decrease_percent: null
+      short_term_plus_minus_percent: 10
+      short_term_window: per 24 hours, and the fluctuation must stay inside the 40-60% range
+      outer_min_percent: 40
+      outer_max_percent: 60
+
+# 不是固定包络。目标随该文物自己的历史气候变化，不能填成一组常数。
+EN_15757:
+  kind: historical_climate_band
+  fixed_numbers: false
+  historical_climate: conditions in which the object has been kept for at least one year and to which it has acclimatized
+  target_level: centred 30-day moving average
+  allowable_band: 7th to 93rd percentile of the deviations from that moving average
