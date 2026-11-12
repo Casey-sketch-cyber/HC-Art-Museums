@@ -4,13 +4,13 @@
 
 ## 当前状态
 
-项目正在按 `docs/PLAN_ISCIENCE.md` 重做，目标期刊 iScience。旧稿（`paper/main.tex`、`paper/rineng/`、`paper/submission/`）已归档，不再修改。新方案的任务都还没开始，状态见 `docs/TASKS.md` 的总表。
+项目正在按 `docs/PLAN_ISCIENCE.md` 重做，目标期刊 iScience。旧稿已归档，不再修改。S0.1 已提交审查；其余任务见 `docs/TASKS.md`。
 
 旧代码和旧稿在 `/mnt/e/lzt/guangxi`。mock 与多区域实验的输出在 `results/` 和 `logs/`，不上传。
 
 ## 待办
 
-- [ ] 从 `docs/TASKS.md` 的 S0.1、S0.2、S0.3、S2.1、S5.2 开始（这几项没有前置依赖，可并行）
+- [ ] 从 `docs/TASKS.md` 的 S0.2、S0.3、S2.1、S5.2 开始（没有前置依赖，可并行）。S0.1 已进入待审查
 - [ ] 开始 S1 前，把实际使用的机器配置（CPU 核数、内存、GPU）记到本文件
 - [ ] 关口 G1（任务 S3.4）出结果后停下，等用户确认走路线 A 还是 B
 - [ ] 用户如能提供之前两次投稿的审稿意见，放到 `docs/reviews/`，并对照调整优先级
@@ -19,13 +19,18 @@
 
 - 旧稿的核心结论不成立，详见 `docs/REVIEW_2026-11-12.md`。
 - 拿不到合作博物馆的实测数据。替代办法见 `docs/DATASETS.md`，其中的数据集只做过检索，还没下载核对。
-- 根目录还没有测试套件（任务 S0.1 会建立）。
+- S0.1 已把 mock 基线检查写成测试，待审查合并后才算完成。
 - EnergyPlus 相关任务（S1.2、S1.3、S4.5）需要 `setup.sh` 装好的环境。
 - `PLAN_ISCIENCE.md` 里损伤函数的"预期形式"和 `TASKS.md` 里文献的卷期页码来自记忆和检索摘要，实现和引用前必须对照原文。
 
 ---
 
 ## 工作记录
+
+### 2026-11-12 · cursor · cursor/S0.1-mock-baselines
+- **完成**：把 `scripts/check_perzone_baseline.py` 的种子 0 检查写成 `tests/test_mock_baselines.py`，并加入 `requirements-dev.txt`。在 `172.21.0.20` 上用 CPU 跑 `pytest tests/test_mock_baselines.py`，2 项通过，用时 30.44 秒。没有使用显卡。
+- **未完成**：S0.2 及之后的任务。
+- **注意 / 坑**：测试只调用 mock 环境，不用 GPU。服务器 GPU 1 上已有别的 Python 进程在跑（约 22 GB、利用率约 50%），这次没有占用显卡。
 
 ### 2026-11-12 · claude · claude/iscience-replan
 - **完成**：审查旧稿和代码，查相关文献，写出 iScience 重构方案。新增 `docs/PLAN_ISCIENCE.md`、`docs/TASKS.md`、`docs/REVIEW_2026-11-12.md`、`docs/DATASETS.md`、`scripts/check_perzone_baseline.py`；更新 `AGENTS.md`、`README.md`、`docs/DECISIONS.md`。
