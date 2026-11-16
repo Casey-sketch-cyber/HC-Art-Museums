@@ -4,13 +4,13 @@
 
 ## 当前状态
 
-项目正在按 `docs/PLAN_ISCIENCE.md` 重做，目标期刊 iScience。旧稿已归档，不再修改。S0.1、S0.2、S2.1、S5.2 已完成；其余任务见 `docs/TASKS.md`。
+项目正在按 `docs/PLAN_ISCIENCE.md` 重做，目标期刊 iScience。旧稿已归档，不再修改。S0.1、S0.2、S2.1、S5.2 已完成；S0.3 已提交待审查；其余任务见 `docs/TASKS.md`。
 
 旧代码和旧稿在 `/mnt/e/lzt/guangxi`。mock 与多区域实验的输出在 `results/` 和 `logs/`，不上传。
 
 ## 待办
 
-- [ ] 从 `docs/TASKS.md` 的 S0.3、S1.1、S1.2 开始（S0.2、S2.1 已完成）
+- [ ] 从 `docs/TASKS.md` 的 S1.1、S1.2、S2.2、S5.1 开始（S0.2、S2.1 已完成，S0.3 已待审查）
 - [x] 实验室计算主机硬件配置已实测登记：WSL2 Ubuntu 22.04，CPU 为 Intel Xeon Gold 6226R @ 2.90 GHz（32 物理核 / 64 线程），内存 235 GiB，GPU 为 2× NVIDIA RTX A6000（每卡 48 GiB；运行前须先检查其他课题进程占用，避免抢占在跑显存）
 - [ ] 关口 G1（任务 S3.4）出结果后停下，等用户确认走路线 A 还是 B
 - [ ] 用户如能提供之前两次投稿的审稿意见，放到 `docs/reviews/`，并对照调整优先级
@@ -20,11 +20,19 @@
 - 旧稿的核心结论不成立，详见 `docs/REVIEW_2026-11-12.md`。
 - 拿不到合作博物馆的实测数据。替代办法见 `docs/DATASETS.md`；S2.1 已完成 D1–D5 下载与核对（D1–D4 可用/部分可用，D5 因无明确许可证标为不用；原始文件存于主机 `data/raw/D1..D5`）。
 - EnergyPlus 相关任务（S1.2、S1.3、S4.5）需要 `setup.sh` 装好的环境（当前 WSL 主机未装 `/usr/local/EnergyPlus*`）。
-- `PLAN_ISCIENCE.md` 里损伤函数的"预期形式"和 `TASKS.md` 里文献的卷期页码来自记忆和检索摘要，实现和引用前必须对照原文。
+- `PLAN_ISCIENCE.md` 里损伤函数的"预期形式"和 `TASKS.md` 里文献的卷期页码来自记忆和检索摘要，实现和引用前必须对照原文（S0.3 已建立逐条核实的 `paper/iscience/references.bib`）。
 
 ---
 
 ## 工作记录
+
+### 2026-11-16 · antigravity · antigravity/S0.3-verify-bib
+- **完成**：完成 S0.3 旧库 49 条逐条核验与新库 `paper/iscience/references.bib`（共 75 条）建设，输出逐条核验台账 `paper/refcheck/verification_log.md` 及单元测试 `tests/test_references_bib.py`。旧库 49 条对应出版物均真实存在，但查出并修正了 8 处元数据错误（含 `Frasca et al. 2024` 4 位合著者、`Boesgaard et al. 2022` 3 位作者及 `Tringa et al. 2024` 第一作者的名字由缩写臆测编造，EnergyPlus v23.2 年份误写为 2024，`Safety-Gymnasium` 漏连字符和卷页，`BuildingGym` 漏期号，以及 11 个旧 key 与真实第一作者/发表年不符的规范化重命名）。补入并核实了 S0.3 指定的全部 15 组文献及 S2.1/S2.2 配套文献共 26 条。
+- **验证**：通过 CrossRef API、DataCite API、`doi.org` Handle API 与 PMLR/JMLR/NeurIPS/CEN/ASHRAE/CCI/GCI/ICOM-CC 页面逐条核对元数据；在实验室计算主机运行 `.venv/bin/pytest tests/ -v` 共 19 项全部通过（用时 11.32 秒），含严格的纯 ASCII、花括号闭合、字段逗号分隔与必填字段语法测试。当前主机与本地未安装 `pdflatex`/`bibtex` 可执行文件，未跑 LaTeX 编译（留待有 TeX 环境的审查或写作阶段编译）。
+- **未完成**：S1.1、S1.2、S2.2、S5.1 及后续任务（注：依赖 S0.3 的 S2.2 与 S5.1 现可基于本分支开展）。
+- **注意 / 坑**：
+  1. `ASHRAE Handbook 2023 Ch. 24` 与 `EN 15757:2010` 为付费标准，本次核实了标准号、标题与版次，未直接打开标准正文（与 `docs/STANDARDS.md` 口径一致）。
+  2. D1 配套论文 `brimblecombe2025vienna`（*Heritage* 2025, 8(4), 124）经 CrossRef 核实的完整 5 位论文作者为 Brimblecombe, Bibl, Fischer, Pristacz, Querner（Zenodo 数据集创建者为 Brimblecombe, Querner, Landsberger），后续写稿引用论文请直接用 `paper/iscience/references.bib` 中的条目。
 
 ### 2026-11-16 · claude · main（审查与合并）
 - **完成**：审查并合并 PR #6（S2.1）。独立重跑 `pytest tests` 16 项通过；检查了下载脚本（不在测试中联网、`usable=False` 默认拒绝）。S2.1 状态改为"完成"。
