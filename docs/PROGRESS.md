@@ -4,27 +4,36 @@
 
 ## 当前状态
 
-项目正在按 `docs/PLAN_ISCIENCE.md` 重做，目标期刊 iScience。旧稿已归档，不再修改。S0.1、S0.2、S5.2 已完成；其余任务见 `docs/TASKS.md`。
+项目正在按 `docs/PLAN_ISCIENCE.md` 重做，目标期刊 iScience。旧稿已归档，不再修改。S0.1、S0.2、S5.2 已完成；S2.1 已提交待审查；其余任务见 `docs/TASKS.md`。
 
 旧代码和旧稿在 `/mnt/e/lzt/guangxi`。mock 与多区域实验的输出在 `results/` 和 `logs/`，不上传。
 
 ## 待办
 
-- [ ] 从 `docs/TASKS.md` 的 S0.3、S2.1 开始（没有前置依赖，可并行）。S0.2 完成后，S1.1、S1.2 的依赖已满足，也可以开始
-- [ ] 开始 S1 前，把实际使用的机器配置（CPU 核数、内存、GPU）记到本文件
+- [ ] 从 `docs/TASKS.md` 的 S0.3、S1.1、S1.2 开始（S0.2 已完成，S2.1 已待审查）
+- [x] 实验室计算主机硬件配置已实测登记：WSL2 Ubuntu 22.04，CPU 为 Intel Xeon Gold 6226R @ 2.90 GHz（32 物理核 / 64 线程），内存 235 GiB，GPU 为 2× NVIDIA RTX A6000（每卡 48 GiB；运行前须先检查其他课题进程占用，避免抢占在跑显存）
 - [ ] 关口 G1（任务 S3.4）出结果后停下，等用户确认走路线 A 还是 B
 - [ ] 用户如能提供之前两次投稿的审稿意见，放到 `docs/reviews/`，并对照调整优先级
 
 ## 已知问题
 
 - 旧稿的核心结论不成立，详见 `docs/REVIEW_2026-11-12.md`。
-- 拿不到合作博物馆的实测数据。替代办法见 `docs/DATASETS.md`，其中的数据集只做过检索，还没下载核对。
-- EnergyPlus 相关任务（S1.2、S1.3、S4.5）需要 `setup.sh` 装好的环境。
+- 拿不到合作博物馆的实测数据。替代办法见 `docs/DATASETS.md`；S2.1 已完成 D1–D5 下载与核对（D1–D4 可用/部分可用，D5 因无明确许可证标为不用；原始文件存于主机 `data/raw/D1..D5`）。
+- EnergyPlus 相关任务（S1.2、S1.3、S4.5）需要 `setup.sh` 装好的环境（当前 WSL 主机未装 `/usr/local/EnergyPlus*`）。
 - `PLAN_ISCIENCE.md` 里损伤函数的"预期形式"和 `TASKS.md` 里文献的卷期页码来自记忆和检索摘要，实现和引用前必须对照原文。
 
 ---
 
 ## 工作记录
+
+### 2026-11-16 · antigravity · antigravity/S2.1-verify-datasets
+- **完成**：完成 S2.1 公开数据集逐项下载、SHA-256 校验、许可证审查与文件内容统计。新增 `scripts/data/_common.py`、`scripts/data/fetch_D1.py`–`fetch_D5.py`（纯标准库，未引入新第三方依赖）及单元测试 `tests/test_dataset_fetchers.py`；回填并扩充 `docs/DATASETS.md`（逐项记录许可证、时间范围、采样间隔、缺测比例、传感器型号与精度出处、是否有室外同步与能耗数据、引用方式）；登记实验室主机 CPU/内存/GPU 实测规格；补充检索确认目前公开仓库中暂无带明确开放许可的亚洲湿热气候博物馆温湿度+能耗配对实测序列。
+- **验证**：在实验室主机上对 `data/raw/D1..D5` 全部 290 个原始文件运行 `python scripts/data/fetch_D{1..5}.py --verify-only`，5 个数据集字节大小与 SHA-256 全部通过；运行 `.venv/bin/pytest tests/ -v`，共 16 项全部通过（含新增 `test_dataset_fetchers.py` 11 项、`test_envelopes.py` 3 项、`test_mock_baselines.py` 2 项），用时 11.55 秒。
+- **未完成**：S0.3、S1.1、S1.2 及后续任务。
+- **注意 / 坑**：
+  1. D5（Zenodo `6589119`）仅标 `Other (Open)` 且归档包与上游 GitHub 仓库均无 `LICENSE` 文件，按规则标为"不用"（`fetch_D5.py` 默认跳过下载）；其中 Ørholm 库房已由 `CC BY 4.0` 的 D2 覆盖。
+  2. D4（Mendeley `dxyvxk6h96.2`）两个子目录中仅 `Museum_Nov2019/`（31 天）为受控博物馆库房，`LSCR_Oct2019/` 为非受控机器人实验室，S2.4 切勿混用；D1 的 `Ext` 列为贴地探头而非室外气象，且 `NH082.csv`（重复行）与 `NH083.csv`（前后分段）跨记录重名；D2 的 `31` 号室外站在近 `100% RH` 时故障失真，`38`、`39` 号除湿电表每脉冲代表 `10 kWh`；D3 仅含冬夏两段 15–20 天短期监测。
+  3. 在实验室主机 `/mnt/e/lzt/guangxi` 运行测试时请显式指定 `pytest tests/`，不要直接跑无参 `pytest`，否则会递归扫描同目录下被 `.gitignore` 忽略的其他大型课题目录。
 
 ### 2026-11-16 · claude · main（审查与合并）
 - **完成**：审查并合并 PR #4（S0.2）和 PR #5（S5.2）。S0.2 独立重跑 pytest 5 项通过，ASHRAE 和 Bizot 数字与能查到的第三方转述交叉一致；在 `docs/STANDARDS.md` 补注 B 级温度下限的不确定性。S5.2 骨架用 pdflatex 编译通过。合入时机械解决了两个 PR 在交接文件上的冲突。
