@@ -4,13 +4,13 @@
 
 ## 当前状态
 
-项目正在按 `docs/PLAN_ISCIENCE.md` 重做，目标期刊 iScience。旧稿已归档，不再修改。S0.1、S0.2、S5.2 已完成；S2.1 已提交待审查；其余任务见 `docs/TASKS.md`。
+项目正在按 `docs/PLAN_ISCIENCE.md` 重做，目标期刊 iScience。旧稿已归档，不再修改。S0.1、S0.2、S2.1、S5.2 已完成；其余任务见 `docs/TASKS.md`。
 
 旧代码和旧稿在 `/mnt/e/lzt/guangxi`。mock 与多区域实验的输出在 `results/` 和 `logs/`，不上传。
 
 ## 待办
 
-- [ ] 从 `docs/TASKS.md` 的 S0.3、S1.1、S1.2 开始（S0.2 已完成，S2.1 已待审查）
+- [ ] 从 `docs/TASKS.md` 的 S0.3、S1.1、S1.2 开始（S0.2、S2.1 已完成）
 - [x] 实验室计算主机硬件配置已实测登记：WSL2 Ubuntu 22.04，CPU 为 Intel Xeon Gold 6226R @ 2.90 GHz（32 物理核 / 64 线程），内存 235 GiB，GPU 为 2× NVIDIA RTX A6000（每卡 48 GiB；运行前须先检查其他课题进程占用，避免抢占在跑显存）
 - [ ] 关口 G1（任务 S3.4）出结果后停下，等用户确认走路线 A 还是 B
 - [ ] 用户如能提供之前两次投稿的审稿意见，放到 `docs/reviews/`，并对照调整优先级
@@ -25,6 +25,10 @@
 ---
 
 ## 工作记录
+
+### 2026-11-16 · claude · main（审查与合并）
+- **完成**：审查并合并 PR #6（S2.1）。独立重跑 `pytest tests` 16 项通过；检查了下载脚本（不在测试中联网、`usable=False` 默认拒绝）。S2.1 状态改为"完成"。
+- **未独立复现**：审查环境无法访问 Zenodo 和 Mendeley，数据的 SHA-256、许可证字段和缺测统计以 PR 记录为准。
 
 ### 2026-11-16 · antigravity · antigravity/S2.1-verify-datasets
 - **完成**：完成 S2.1 公开数据集逐项下载、SHA-256 校验、许可证审查与文件内容统计。新增 `scripts/data/_common.py`、`scripts/data/fetch_D1.py`–`fetch_D5.py`（纯标准库，未引入新第三方依赖）及单元测试 `tests/test_dataset_fetchers.py`；回填并扩充 `docs/DATASETS.md`（逐项记录许可证、时间范围、采样间隔、缺测比例、传感器型号与精度出处、是否有室外同步与能耗数据、引用方式）；登记实验室主机 CPU/内存/GPU 实测规格；补充检索确认目前公开仓库中暂无带明确开放许可的亚洲湿热气候博物馆温湿度+能耗配对实测序列。
