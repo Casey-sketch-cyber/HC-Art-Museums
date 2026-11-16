@@ -4,6 +4,7 @@
 
 | 日期 | 决策 | 原因 | 放弃的方案 | 记录者 |
 |---|---|---|---|---|
+| 2026-11-16 | 新文献库 `paper/iscience/references.bib` 将旧库中与真实第一作者或正式发表年不符的 11 个遗留 key（如 `ascione2018museum`、`verticchio2024microclimate`）统一改为真实作者+年份，并在 `paper/refcheck/verification_log.md` 登记一对一映射 | `paper/iscience/main.tex` 目前为空骨架、尚无 `\cite` 调用；保留错名或错年 key 容易误导后续写 S5.1 和 S5.3 的工具引用错误年份或作者 | 原样沿用旧稿遗留的错误 key 命名 | antigravity |
 | 2026-11-16 | 公开数据集 D5（Zenodo 6589119，Ørholm 与 Annisse 教堂）标为"不用"，`fetch_D5.py` 默认跳过下载 | Zenodo 仅标注 `Other (Open)` 且无许可正文，归档包与上游 GitHub 仓库均无 `LICENSE` 文件，再分发与研究使用授权未明；且其中 Ørholm 库房已由 `CC BY 4.0` 的 D2 完整覆盖 | 将配套论文正文的 CC BY 4.0 自行外推到无许可证的数据仓库并照常使用 | antigravity |
 | 2026-11-16 | 公开数据集 D4 仅采用 `Museum_Nov2019/` 子集（31 天），排除同仓库的 `LSCR_Oct2019/` 子集 | 核对 Mendeley v2 两个 UUID 子目录内的 `description_table.png` 与 *Data* 论文确认：10 月子集采自非受控机器人实验室（ITM LSCR），仅 11 月子集采自 De La Salle 博物馆受控藏品库房 | 按网页摘要将两个月合并当作受控博物馆库房序列 | antigravity |
 | 2026-11-12 | iScience 稿件骨架只按终稿清单的章节顺序自写，不把出版社模板放进仓库 | 任务要的是须知核对和空骨架。终稿清单写明 LaTeX 接收后还要转换，官方模板页另有链接 | 下载 Cell Press 的 cls 或 Word 模板并提交 | cursor |
