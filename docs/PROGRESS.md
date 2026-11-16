@@ -4,13 +4,13 @@
 
 ## 当前状态
 
-项目正在按 `docs/PLAN_ISCIENCE.md` 重做，目标期刊 iScience。旧稿已归档，不再修改。S0.1、S0.2、S2.1、S5.2 已完成；S0.3 已提交待审查；其余任务见 `docs/TASKS.md`。
+项目正在按 `docs/PLAN_ISCIENCE.md` 重做，目标期刊 iScience。旧稿已归档，不再修改。S0.1、S0.2、S0.3、S2.1、S5.2 已完成；其余任务见 `docs/TASKS.md`。
 
 旧代码和旧稿在 `/mnt/e/lzt/guangxi`。mock 与多区域实验的输出在 `results/` 和 `logs/`，不上传。
 
 ## 待办
 
-- [ ] 从 `docs/TASKS.md` 的 S1.1、S1.2、S2.2、S5.1 开始（S0.2、S2.1 已完成，S0.3 已待审查）
+- [ ] 从 `docs/TASKS.md` 的 S1.1、S1.2、S2.2、S5.1 开始（依赖都已完成）
 - [x] 实验室计算主机硬件配置已实测登记：WSL2 Ubuntu 22.04，CPU 为 Intel Xeon Gold 6226R @ 2.90 GHz（32 物理核 / 64 线程），内存 235 GiB，GPU 为 2× NVIDIA RTX A6000（每卡 48 GiB；运行前须先检查其他课题进程占用，避免抢占在跑显存）
 - [ ] 关口 G1（任务 S3.4）出结果后停下，等用户确认走路线 A 还是 B
 - [ ] 用户如能提供之前两次投稿的审稿意见，放到 `docs/reviews/`，并对照调整优先级
@@ -25,6 +25,10 @@
 ---
 
 ## 工作记录
+
+### 2026-11-16 · claude · main（审查与合并）
+- **完成**：审查并合并 PR #7（S0.3）。独立重跑 `pytest tests` 19 项通过；用 bibtex + pdflatex 编译全部 75 条无错误；抽查 7 条新增文献的作者、卷期页码和 DOI，均与出版方或索引库记录一致。S0.3 状态改为"完成"。
+- **注意**：11 条标准、会议文集和学位论文没有 DOI 或网址，正文引用前再确认。新稿只从 `paper/iscience/references.bib` 引用。
 
 ### 2026-11-16 · antigravity · antigravity/S0.3-verify-bib
 - **完成**：完成 S0.3 旧库 49 条逐条核验与新库 `paper/iscience/references.bib`（共 75 条）建设，输出逐条核验台账 `paper/refcheck/verification_log.md` 及单元测试 `tests/test_references_bib.py`。旧库 49 条对应出版物均真实存在，但查出并修正了 8 处元数据错误（含 `Frasca et al. 2024` 4 位合著者、`Boesgaard et al. 2022` 3 位作者及 `Tringa et al. 2024` 第一作者的名字由缩写臆测编造，EnergyPlus v23.2 年份误写为 2024，`Safety-Gymnasium` 漏连字符和卷页，`BuildingGym` 漏期号，以及 11 个旧 key 与真实第一作者/发表年不符的规范化重命名）。补入并核实了 S0.3 指定的全部 15 组文献及 S2.1/S2.2 配套文献共 26 条。
