@@ -4,13 +4,13 @@
 
 ## 当前状态
 
-项目正在按 `docs/PLAN_ISCIENCE.md` 重做，目标期刊 iScience。旧稿已归档，不再修改。S0.1 已完成。S0.2、S5.2 已提交审查；其余任务见 `docs/TASKS.md`。
+项目正在按 `docs/PLAN_ISCIENCE.md` 重做，目标期刊 iScience。旧稿已归档，不再修改。S0.1、S0.2、S5.2 已完成；其余任务见 `docs/TASKS.md`。
 
 旧代码和旧稿在 `/mnt/e/lzt/guangxi`。mock 与多区域实验的输出在 `results/` 和 `logs/`，不上传。
 
 ## 待办
 
-- [ ] 从 `docs/TASKS.md` 的 S0.3、S2.1 开始（没有前置依赖，可并行）
+- [ ] 从 `docs/TASKS.md` 的 S0.3、S2.1 开始（没有前置依赖，可并行）。S0.2 完成后，S1.1、S1.2 的依赖已满足，也可以开始
 - [ ] 开始 S1 前，把实际使用的机器配置（CPU 核数、内存、GPU）记到本文件
 - [ ] 关口 G1（任务 S3.4）出结果后停下，等用户确认走路线 A 还是 B
 - [ ] 用户如能提供之前两次投稿的审稿意见，放到 `docs/reviews/`，并对照调整优先级
@@ -25,6 +25,11 @@
 ---
 
 ## 工作记录
+
+### 2026-11-16 · claude · main（审查与合并）
+- **完成**：审查并合并 PR #4（S0.2）和 PR #5（S5.2）。S0.2 独立重跑 pytest 5 项通过，ASHRAE 和 Bizot 数字与能查到的第三方转述交叉一致；在 `docs/STANDARDS.md` 补注 B 级温度下限的不确定性。S5.2 骨架用 pdflatex 编译通过。合入时机械解决了两个 PR 在交接文件上的冲突。
+- **待写作阶段处理**：骨架里 Key Resources Table 的位置，写 S5.3 时按当时的方法指南核对。
+- **流程**：`docs/TASKS.md` 第 6 步加了一句，干活的 AI 结束时要对用户说"PR #编号 已提交，请让 Claude 审查"。
 
 ### 2026-11-12 · cursor · cursor/S5.2-iscience-requirements
 - **完成**：按当天能打开的 Cell Press 页面核对 Summary、Highlights、图形摘要、正文结构、STAR Methods、数据和代码声明、生成式 AI 声明和版面费，写入 `docs/ISCIENCE_REQUIREMENTS.md`。在 `paper/iscience/` 留下章节骨架，没有填结果。
