@@ -66,6 +66,8 @@ CCI 对 AA 图的说明：长期外限约束的是设定值，不是短期波动
 
 “降低最多 20°C”是上限，不是必须降满 20°C。配置里 `seasonal_decrease_is_upper_bound: true` 标的是这一点。
 
+**审查补注（2026-11-16）**：KIKIRPA 的馆藏气候对照图（按 ASHRAE 2019 整理）对 B 级温度也只写了 “< 30°C”，与 CCI 一致。但有博物馆按更早版本整理的 ASHRAE 表格给出了 B 级温度 “≥50°F 且 ≤86°F”（约 10–30°C）。手册原文未核对，B 级在实验里用作基线前，要么核对 2023 版手册，要么在论文里写明下限取值和依据，不能默认没有下限。
+
 ## Bizot Green Protocol，2023 年 9 月刷新
 
 来源：协议原文第 4 节 *The Bizot Green Guideline*。PDF：<https://www.cimam.org/documents/238/Bizot_Green_Protocol_-_2023_refresh_-_Sept_2023.pdf>。封面写 Latest refresh: September 2023。
