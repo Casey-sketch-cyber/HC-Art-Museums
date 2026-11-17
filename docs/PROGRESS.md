@@ -4,13 +4,13 @@
 
 ## 当前状态
 
-项目正在按 `docs/PLAN_ISCIENCE.md` 重做，目标期刊 iScience。旧稿已归档，不再修改。S0.1、S0.2、S0.3、S2.1、S2.2、S5.2 已完成；其余任务见 `docs/TASKS.md`。
+项目正在按 `docs/PLAN_ISCIENCE.md` 重做，目标期刊 iScience。旧稿已归档，不再修改。S0.1、S0.2、S0.3、S2.1、S2.2、S5.2 已完成；S2.3 已提交待审查；其余任务见 `docs/TASKS.md`。
 
 旧代码和旧稿在 `/mnt/e/lzt/guangxi`。mock 与多区域实验的输出在 `results/` 和 `logs/`，不上传。
 
 ## 待办
 
-- [ ] 从 `docs/TASKS.md` 的 S1.1、S1.2、S2.3、S5.1 开始（依赖都已完成）
+- [ ] 从 `docs/TASKS.md` 的 S1.1、S1.2、S2.4、S5.1 开始（S0.2、S0.3、S2.1、S2.2 已完成，S2.3 已待审查）
 - [x] 实验室计算主机硬件配置已实测登记：WSL2 Ubuntu 22.04，CPU 为 Intel Xeon Gold 6226R @ 2.90 GHz（32 物理核 / 64 线程），内存 235 GiB，GPU 为 2× NVIDIA RTX A6000（每卡 48 GiB；运行前须先检查其他课题进程占用，避免抢占在跑显存）
 - [ ] 关口 G1（任务 S3.4）出结果后停下，等用户确认走路线 A 还是 B
 - [ ] 用户如能提供之前两次投稿的审稿意见，放到 `docs/reviews/`，并对照调整优先级
@@ -25,6 +25,17 @@
 ---
 
 ## 工作记录
+
+### 2026-11-16 · antigravity · antigravity/S2.3-damage-models
+- **完成**：完成 S2.3 化学、生物、机械、金属四类可微损伤函数与参数核验说明，新增 `src/museum_v2/damage.py`、`docs/DAMAGE_MODELS.md`、`tests/test_damage.py`，并更新 `src/museum_v2/__init__.py`。
+  - **化学降解**：按 `martens2012thesis`（Ch.3 Eq. 3.2 p. 61、Ch.5 §5.2.3 p. 103）与 `michalski2002double` 实现寿命倍数 $LM(T, \mathrm{RH})$（含纸质直接用空气 $E_a = 100\text{ kJ/mol}$ 与有涂层木作/画作表面 $E_a = 70\text{ kJ/mol}$，满足 $LM(20^\circ\text{C}, 50\%\mathrm{RH}) \equiv 1.0$ 及 Martens p. 61 的 `1.65`/`2.04` 算例；时间等效取调和均值 $LM_{\text{eq}}$ 与算术均值 $LM_{\text{mean}}$）。
+  - **生物霉菌**：由 Sedlbauer 等 (2001, Fig. 5 矢量数据) 与 Krus, Kilian & Sedlbauer (2007, p. 186 Fig. 1) 提取 `LIM_0 / LIM_I / LIM_II` 边界及 `Substrate I` 萌发等值线（1–16 d），实现可微 `sedlbauer_lim_rh`、`mould_germination_rate`、`biological_mould_risk`（含 Martens p. 102 的 8 天等值线累积萌发指数 $G$）及 Hukka & Viitanen (1999) `vtt_critical_rh` 对照。
+  - **机械损伤与 Proofed Fluctuation**：由 Mecklenburg, Tumosa & Erhardt (1998, pp. 467–468 Fig. 3a & Fig. 4a) 及 `martens2012thesis`（pp. 53–56、§5.2.4 pp. 104–105）拟合单调三次木材切向湿应变曲线 $\varepsilon_{\mathrm{wood}}(\mathrm{RH})$，支持 `mode="gradient"`（`panel_painting`/`wooden_sculpture` 的表层–整体差）与 `mode="acclimatized"`（`wooden_furniture` 按整体 RH 相对长期均值偏离），按 $\varepsilon_{\mathrm{yield}} = 0.004$ 与受拉断裂 $\varepsilon_{\mathrm{failure}} = 0.012$ 评估并用双曲/LogSumExp 平滑；同时按 `michalski2007ideal`（pp. 11–15）实现 `estimate_proofed_envelope` 与 `proofed_fluctuation_risk`。
+  - **金属（青铜）腐蚀**：按 CCI *Caring for Metal Objects*（引 Rimmer et al. 2013：`42% RH`）、Scott (1990) / Thickett（`35% RH`）、ASHRAE Dry room（`30% RH`，`martens2012thesis` Table 3.1 p. 49）与洁净金属水膜阈值（`65% RH`）实现 `metal_corrosion_risk` 的精确累计超限小时数及 Sigmoid/Softplus 可微替代。
+- **验证**：
+  1. 在计算主机 `.venv`（无 PyTorch）运行 `.venv/bin/pytest tests/ -v`：**50 passed, 2 skipped**（用时 12.24 秒），包含四类文献算例校验、`wooden_furniture` 与 `paper` 衔接测试、8760 小时逐点标量循环参照测试以及四类损伤函数纯 NumPy 解析梯度的中心有限差分对照（`< 1e-5`）。
+  2. 在计算主机含 PyTorch（Python 3.12）环境运行 `tests/test_damage.py -v`：**7 passed**（用时 36.03 秒），四类机理单独及端到端串联 S2.2 `compute_object_response -> mechanical_strain_risk` 均通过 `torch.autograd.gradcheck`。
+- **未完成**：S1.1、S1.2、S2.4（现可基于本分支开展）、S5.1 及后续任务。
 
 ### 2026-11-17 · claude · claude/reference-loop-test
 - **完成**：把审查 S2.2 时用的独立核验写成回归测试 `tests/test_objects_reference_loop.py`（17 项）：用逐步循环对照 `first_order_lowpass` 的并行扫描（一整年逐时数据、多个 τ、有无初值、float32、批量与 `time_axis=0`），并按一阶理论检查日波动衰减幅度。`docs/TASKS.md` 通用约定加了一条：用加速算法时要附朴素参照实现测试。
