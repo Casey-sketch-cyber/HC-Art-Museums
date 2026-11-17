@@ -1,0 +1,188 @@
+# Hygroscopic RH response time constants for museum collection categories (Task S2.2).
+#
+# Model convention (used in src/museum_v2/objects.py):
+#   Continuous ODE:  tau * d(RH_obj)/dt = RH_air(t) - RH_obj(t)
+#   Exact ZOH step:  RH_obj[k] = alpha * RH_obj[k-1] + (1 - alpha) * RH_air[k],
+#                    alpha = exp(-dt / tau)
+#   Under a step change in RH_air, RH_obj reaches (1 - 1/e) = 63.212056% of the
+#   step at t = tau (matching the HERIe definition, kupczak2018herie), and
+#   (1 - e^-3) = 95.021293% of the step at t = 3 * tau.
+#
+# Conversion from Martens (2012) Chapter 5:
+#   Martens (2012, Sec. 5.2.1, p. 98 & Definitions, p. 170) defines "response time"
+#   (tau_response in Table 5.1, p. 101) as the time to reach 95% of a step change
+#   (t_95), and writes the first-order decay factor in Eq. (5.2) (p. 99) as:
+#       a = exp(-3 * dt / tau_response)
+#   Equating exp(-dt / tau) = exp(-3 * dt / tau_response) gives the exact relation:
+#       tau = tau_response / 3 = t_95 / 3.
+#   Temperature equilibration is treated as instantaneous on hourly time scales
+#   per Martens (2012, Sec. 5.2.1, p. 101), citing Jakiela et al. (2008).
+
+provenance:
+  checked_on: 2026-11-16
+  bibliography_file: paper/iscience/references.bib
+  time_constant_definition: "1 - 1/e (63.212056%) step-response time constant tau [hours]"
+  discretization: "exact zero-order hold: alpha = exp(-dt_hours / tau_hours)"
+  temperature_response:
+    modeled_as: instantaneous_room_air
+    bib_key: martens2012thesis
+    source_detail: "Martens (2012), Ch. 5, Sec. 5.2.1, p. 101 (citing jakiela2008modelling)"
+  conversion_rule:
+    from_definition: "t_95 (time to reach 95% of a step change in RH)"
+    formula: "tau_hours = t_95_hours / 3"
+    bib_key: martens2012thesis
+    source_detail: "Martens (2012), Ch. 5, Sec. 5.2.1, pp. 98-99, Eq. (5.2) (p. 99), and Definitions (p. 170)"
+
+objects:
+  panel_painting:
+    label_en: "Panel painting (10 mm wooden panel, oil-painted and varnished on one side)"
+    label_zh: "木板画（10 mm 单面油彩清漆木板）"
+    description: >
+      1 cm thick wooden panel oil-painted and heavily varnished on the front side
+      with a closed/protected backside so moisture exchange is governed by the front
+      barrier and panel thickness (Martens 2012, Sec. 5.1.2, p. 95 & Sec. 5.2.1, p. 101).
+    surface:
+      tau_hours: 34.4
+      reported_value: 4.3
+      reported_unit: days
+      reported_hours: 103.2
+      reported_definition: "t_95 (95% step response; derived from ASHRAE t_50 ~ 1 day via t_95 = 4.32 * t_50)"
+      conversion_formula: "tau_hours = (4.3 * 24) / 3 = 34.4"
+      bib_key: martens2012thesis
+      document: "Martens, M. H. J. (2012). Climate Risk Assessment in Museums, PhD thesis, TU Eindhoven"
+      pages: "pp. 98-101"
+      table_or_figure: "Eq. (5.2) (p. 99), Fig. 5.8 (p. 100), Table 5.1 (p. 101)"
+    bulk:
+      tau_hours: 208.0
+      reported_value: 26.0
+      reported_unit: days
+      reported_hours: 624.0
+      reported_definition: "t_95 (95% step response of entire 10 mm panel; ASHRAE t_50 = 5-6 days)"
+      conversion_formula: "tau_hours = (26.0 * 24) / 3 = 208.0"
+      bib_key: martens2012thesis
+      document: "Martens, M. H. J. (2012). Climate Risk Assessment in Museums, PhD thesis, TU Eindhoven"
+      pages: "pp. 98-101"
+      table_or_figure: "Eq. (5.2) (p. 99), Fig. 5.8 (p. 100), Table 5.1 (p. 101)"
+    notes: >
+      Martens (2012, p. 101) notes that if the wooden backside is untreated and directly
+      exposed to indoor air, backside surface t_95 drops to ~10 h (tau ~ 3.33 h); HERIe
+      (kupczak2018herie, Mechanical Damage manual Step 1) gives 8*tau = 123 h (tau = 15.375 h)
+      for an uncoated 10 mm panel open to vapor flow through both faces.
+
+  wooden_sculpture:
+    label_en: "Wooden sculpture (40 mm solid wood with light varnish or thin polychrome)"
+    label_zh: "木雕（40 mm 实木薄漆或彩绘雕塑）"
+    description: >
+      Solid carved 40 mm wooden statue with thin, vapor-permeable decorative or
+      polychrome finish where rapid outer-layer response against slower core response
+      induces moisture-gradient stress (Martens 2012, Sec. 5.1.4, p. 97 & Sec. 5.2.1, p. 101).
+    surface:
+      tau_hours: 3.3333333333333335
+      reported_value: 10.0
+      reported_unit: hours
+      reported_hours: 10.0
+      reported_definition: "t_95 (95% step response of outer layer; ASHRAE t_50 = 0.1 days = 2.4 h)"
+      conversion_formula: "tau_hours = 10.0 / 3 = 3.3333333333333335"
+      bib_key: martens2012thesis
+      document: "Martens, M. H. J. (2012). Climate Risk Assessment in Museums, PhD thesis, TU Eindhoven"
+      pages: "pp. 97, 98-101"
+      table_or_figure: "Eq. (5.2) (p. 99), Fig. 5.8 (p. 100), Table 5.1 (p. 101)"
+    bulk:
+      tau_hours: 120.0
+      reported_value: 15.0
+      reported_unit: days
+      reported_hours: 360.0
+      reported_definition: "t_95 (sub-surface/core response causing maximum deformation stress in 40 mm wood, citing Vici et al. 2006)"
+      conversion_formula: "tau_hours = (15.0 * 24) / 3 = 120.0"
+      bib_key: martens2012thesis
+      document: "Martens, M. H. J. (2012). Climate Risk Assessment in Museums, PhD thesis, TU Eindhoven"
+      pages: "pp. 97, 98-101"
+      table_or_figure: "Eq. (5.2) (p. 99), Table 5.1 (p. 101)"
+    notes: >
+      In Martens (2012, Sec. 5.2.4, p. 105, Fig. 5.14), mechanical risk for wooden
+      sculptures is evaluated from the gradient between surface response (tau = 3.33 h)
+      and sub-surface/core response (tau = 120.0 h).
+
+  wooden_furniture:
+    label_en: "Coated wooden furniture / lacquer box (undamaged vapor-retarding coating)"
+    label_zh: "木质漆器家具（完整涂层木家具 / 漆盒）"
+    description: >
+      Lacquered or heavily coated wooden furniture (represented by a 17th-century
+      Japanese lacquer box on Hinoki wood examined by Bratasz et al. 2008), where the
+      intact coating acts as a vapor barrier equivalent to 26 mm of wood so wood
+      beneath the coating responds uniformly with the bulk (Martens 2012, p. 54, p. 97, p. 101).
+    surface:
+      tau_hours: 320.0
+      reported_value: 40.0
+      reported_unit: days
+      reported_hours: 960.0
+      reported_definition: "t_95 (wood beneath intact lacquer coating responds uniformly with bulk; ASHRAE t_50 = 10 days)"
+      conversion_formula: "tau_hours = (40.0 * 24) / 3 = 320.0"
+      bib_key: martens2012thesis
+      document: "Martens, M. H. J. (2012). Climate Risk Assessment in Museums, PhD thesis, TU Eindhoven"
+      pages: "pp. 54, 97, 98-101, 103"
+      table_or_figure: "Eq. (5.2) (p. 99), Fig. 5.8 (p. 100), Table 5.1 (p. 101)"
+    bulk:
+      tau_hours: 320.0
+      reported_value: 40.0
+      reported_unit: days
+      reported_hours: 960.0
+      reported_definition: "t_95 (full response of entire lacquer box, citing Bratasz et al. 2008; ASHRAE t_50 = 10 days)"
+      conversion_formula: "tau_hours = (40.0 * 24) / 3 = 320.0"
+      bib_key: martens2012thesis
+      document: "Martens, M. H. J. (2012). Climate Risk Assessment in Museums, PhD thesis, TU Eindhoven"
+      pages: "pp. 54, 97, 98-101, 105"
+      table_or_figure: "Eq. (5.2) (p. 99), Fig. 5.8 (p. 100), Table 5.1 (p. 101), Fig. 5.13 (p. 105)"
+    field_corroboration:
+      bib_key: knight2007response
+      document: "Knight, B. & Thickett, D. (2007). Determination of Response Rates of Wooden Objects to Fluctuating Relative Humidity in Historic Properties, Museum Microclimates, pp. 85-88"
+      pages: "pp. 85-87"
+      table_or_figure: "Abstract (p. 85), Fig. 3 (p. 86), Fig. 4-5 (p. 87)"
+      finding: >
+        LVDT monitoring across a pre-existing joint crack (sensor screwed ~10 mm deep,
+        p. 87) on a carved gilded wooden table at Chiswick House showed a 41-hour
+        cross-correlation lag and negligible response to diurnal (<41 h) RH cycles,
+        confirming Martens (2012, pp. 101, 119) that cracked coatings shorten response
+        times relative to intact lacquer while still filtering sub-diurnal fluctuations.
+    notes: >
+      Because surface beneath intact lacquer and bulk share tau = 320 h, Martens (2012,
+      Sec. 5.2.4, p. 105, Fig. 5.13) evaluates mechanical strain of coated furniture
+      from bulk RH relative to the acclimatized long-term/annual mean RH rather than
+      surface-minus-bulk difference.
+
+# Candidate categories from PLAN_ISCIENCE.md Sec. 5.2 that are intentionally NOT assigned
+# first-order (tau_surface, tau_bulk) constants per TASKS.md Sec. S2.2 ("文献里查不到的类别不实现，
+# 并在 PROGRESS 里说明"):
+omitted_categories:
+  paper:
+    label_zh: "纸质 / 档案"
+    reason: >
+      Martens (2012, Sec. 5.2.1, pp. 100-101 & Table 5.1, p. 101) reports only the
+      qualitative label "minutes" for a single sheet of paper (citing Michalski 1993)
+      and wide qualitative intervals ("hours to three days" for opened books; "6 to 9
+      months" for books in a closed cabinet) without separate numerical surface and bulk
+      time constants. Kupczak et al. (2018, Cellulose 25:2873-2884, p. 2882, Eq. 10 &
+      Fig. 9; bib_key: kupczak2018cellulose) report k_i = 3.8e-3 s^-1 (tau = 263 s =
+      4.39 min) only for isolated fibre uptake under vacuum ("no air present"), and
+      model books via a nonlinear 2D finite-element PDE (p. 2882, Eqs. 11-12 & Fig. 10)
+      without lumped first-order surface/bulk constants. On hourly simulation steps
+      (dt = 1 h >> minutes), exposed single-sheet paper is in quasi-instantaneous
+      hygric equilibrium with room air (as in HERIe Chemical Degradation module,
+      kupczak2018herie).
+  canvas_painting:
+    label_zh: "布面油画"
+    reason: >
+      Not included in Martens (2012, Table 5.1, p. 101; Sec. 5.4, p. 108 explicitly
+      notes "Only four objects are assessed"), not modeled in HERIe's Mechanical Damage
+      module (kupczak2018herie, which covers wooden panels and parchment only; its
+      Chemical Degradation module Sec. 5 evaluates canvas on instantaneous room T/RH),
+      and not measured in Knight & Thickett (2007). Primary sources with verifiable
+      page/table numbers for separate surface and bulk time constants could not be
+      opened, so numerical constants are not invented.
+  bronze:
+    label_zh: "青铜 / 金属"
+    reason: >
+      Impermeable, non-hygroscopic metal: water vapor does not diffuse into bulk metal,
+      and conservation literature (Martens 2012, Table 3.1, p. 49; PLAN_ISCIENCE.md
+      Sec. 5.3) defines no hygroscopic surface/bulk response time constants. Bronze
+      corrosion risk in S2.3 depends directly on ambient/surface RH exceeding critical RH.
