@@ -1,6 +1,6 @@
 # 文物损伤函数与参数出处说明（任务 S2.3）
 
-> 对应实现：[damage.py](file:///d:/Agent-Project/zhaohe/HC-Art-Museums/src/museum_v2/damage.py)，[objects.py](file:///d:/Agent-Project/zhaohe/HC-Art-Museums/src/museum_v2/objects.py)，[objects.yaml](file:///d:/Agent-Project/zhaohe/HC-Art-Museums/configs/objects.yaml)。所有文献 key 均对应 [references.bib](file:///d:/Agent-Project/zhaohe/HC-Art-Museums/paper/iscience/references.bib) 中已核实条目。
+> 对应实现：[damage.py](../src/museum_v2/damage.py)，[objects.py](../src/museum_v2/objects.py)，[objects.yaml](../configs/objects.yaml)。所有文献 key 均对应 [references.bib](../paper/iscience/references.bib) 中已核实条目。
 
 ---
 
@@ -103,7 +103,9 @@ $$LM(T_C, \mathrm{RH}) = \left(\frac{50}{\mathrm{RH}}\right)^{1.3} \cdot \exp\!\
 ### 3.2 可微平滑与数值保护
 
 - $|\varepsilon|$ 采用光滑双曲近似 $\sqrt{\varepsilon^2 + \delta^2} - \delta$（$\delta = 10^{-8}$），在 $\varepsilon = 0$ 处精确取 $0$ 且可微。
-- 全年最大应变比 $\max_t |\varepsilon_t| / \varepsilon_{\mathrm{yield}}$ 采用归一化 Log-Sum-Exp 平滑上界（$\gamma = 2500$），同时返回精确非光滑 `exact_max_strain_ratio` 供表观审计与阈值校验。
+- 全年最大应变比 $\max_t |\varepsilon_t| / \varepsilon_{\mathrm{yield}}$ 先对无量纲应变比取严格光滑上界 $r_t = \sqrt{(\varepsilon_t/\varepsilon_{\mathrm{yield}})^2 + 10^{-12}}$，再使用不减 $\ln N$ 的 **LogSumExp**（默认 $\gamma = 1000.0$）：
+  $$\mathrm{LSE}_\gamma(r) = \frac{1}{\gamma}\ln \sum_{t=1}^N e^{\gamma r_t} \in \left[\max_t r_t,\; \max_t r_t + \frac{\ln N}{\gamma}\right]$$
+  该写法保证在任意全年波形（$N = 8760$ 时 $\ln N/\gamma \approx 0.0091$）及单次尖峰激励下均满足 $\text{精确峰值} \le \text{平滑值} \le \text{精确峰值} + 0.01$（保守上界方向，避免约束优化偷越屈服阈值）；同时返回精确非光滑 `exact_max_strain_ratio` 供表观审计。
 - 越界时间占比使用 Sigmoid（$\beta_\varepsilon = 2\times 10^{-4}$）。
 
 ### 3.3 适用范围与已知局限

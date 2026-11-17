@@ -10,7 +10,8 @@
 
 ## 待办
 
-- [ ] 从 `docs/TASKS.md` 的 S1.1、S1.2、S2.4、S5.1 开始（S0.2、S0.3、S2.1、S2.2 已完成，S2.3 已待审查）
+- [x] **antigravity 的 PR #10（S2.3）被退回**：已按审查意见修复，改为未归一化 LogSumExp 上界（$\gamma = 1000$，作用于无量纲应变比）并补齐整年波形与单次尖峰回归测试，同时将 `docs/DAMAGE_MODELS.md` 的本机链接替换为相对路径，现重新提交待审查。
+- [ ] 从 `docs/TASKS.md` 的 S1.1、S1.2、S2.4、S5.1 开始（S0.2、S0.3、S2.1、S2.2 已完成，S2.3 已重新提交待审查）
 - [x] 实验室计算主机硬件配置已实测登记：WSL2 Ubuntu 22.04，CPU 为 Intel Xeon Gold 6226R @ 2.90 GHz（32 物理核 / 64 线程），内存 235 GiB，GPU 为 2× NVIDIA RTX A6000（每卡 48 GiB；运行前须先检查其他课题进程占用，避免抢占在跑显存）
 - [ ] 关口 G1（任务 S3.4）出结果后停下，等用户确认走路线 A 还是 B
 - [ ] 用户如能提供之前两次投稿的审稿意见，放到 `docs/reviews/`，并对照调整优先级
@@ -25,6 +26,18 @@
 ---
 
 ## 工作记录
+
+### 2026-11-16 · antigravity · antigravity/S2.3-damage-models（PR #10 退回修改）
+- **完成**：按 Claude PR #10 审查意见完成修改并重跑双环境全量校验：
+  1. **`_smooth_max` 改为保守上界**：取消减去 $\ln N$，改为未归一化 LogSumExp（默认 $\gamma = 1000.0$），作用于无量纲正应变比 $r_t = \sqrt{(\varepsilon_t / \varepsilon_y)^2 + 10^{-12}}$，确保 $N = 8760$ 时满足 $\text{exact} \le \text{smooth} \le \text{exact} + \ln(8760)/1000 + 10^{-6} \approx \text{exact} + 0.0091 < \text{exact} + 0.02$；同步更新 `mechanical_strain_risk`、`mechanical_strain_vjp_numpy` 与 `docs/DAMAGE_MODELS.md` §3.2。
+  2. **补充回归测试**：更新 `tests/test_damage.py` 中 `test_full_year_damage_matches_naive_scalar_loops` 断言，并新增 `test_smooth_max_strain_is_tight_upper_bound_on_full_year_and_spike` 校验三类藏品整年 8760 h 波形、单小时 30% RH 尖峰（直接与藏品滤波后）以及全零应变序列均严格满足 `exact <= smooth <= exact + 0.02`。
+  3. **修复本机路径链接**：将 `docs/DAMAGE_MODELS.md` 顶部的 `file:///...` 绝对路径全部替换为仓库相对路径（`../src/museum_v2/...` 等）。
+- **验证**：
+  1. 无 PyTorch 环境 `.venv/bin/pytest tests/ -v`：**51 passed, 2 skipped**（用时 12.30 秒；跳过的 2 项为 `torch` 专测）。
+  2. 含 PyTorch（Python 3.12）环境 `tests/test_damage.py -v`：**8 passed**（用时 34.43 秒；含新回归测试与全链路 `torch.autograd.gradcheck`）。
+
+### 2026-11-17 · claude · main（审查）
+- **退回** PR #10（S2.3）。化学、生物、金属和机械的符号处理都核对通过；问题在 `_smooth_max`：整年波形下平滑最大应变比只有精确值的 35%–65%，单次尖峰时只有 5%。要求改成上界并加测试。另需把 `docs/DAMAGE_MODELS.md` 里的 `file:///d:/...` 链接改成相对路径。
 
 ### 2026-11-16 · antigravity · antigravity/S2.3-damage-models
 - **完成**：完成 S2.3 化学、生物、机械、金属四类可微损伤函数与参数核验说明，新增 `src/museum_v2/damage.py`、`docs/DAMAGE_MODELS.md`、`tests/test_damage.py`，并更新 `src/museum_v2/__init__.py`。

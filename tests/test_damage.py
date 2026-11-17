@@ -262,9 +262,64 @@ def test_full_year_damage_matches_naive_scalar_loops():
     assert math.isclose(float(bio.exceedance_hours_exact), bio_exact_hrs, abs_tol=1.0)
     assert math.isclose(float(bio.exceedance_rh_hours), bio_excess_sum, rel_tol=1e-5)
     assert math.isclose(float(mech.exact_max_strain_ratio), max_abs_strain / 0.004, rel_tol=1e-12)
-    assert float(mech.max_strain_ratio) <= float(mech.exact_max_strain_ratio) + 1e-12
+    assert (
+        float(mech.exact_max_strain_ratio)
+        <= float(mech.max_strain_ratio)
+        <= float(mech.exact_max_strain_ratio) + 0.02
+    )
     assert math.isclose(float(met.exceedance_hours_exact), met_exact_hrs, abs_tol=1e-12)
     assert math.isclose(float(met.exceedance_hours_smooth), met_smooth_hrs, rel_tol=1e-12)
+
+
+def test_smooth_max_strain_is_tight_upper_bound_on_full_year_and_spike():
+    """Smooth max strain ratio is a conservative upper bound within +0.02 over 8760 h."""
+    rng = np.random.default_rng(2026)
+    t = np.arange(8760, dtype=np.float64)
+    rh_full = np.clip(
+        50.0 + 18.0 * np.sin(2.0 * math.pi * t / 8760.0) + rng.normal(0.0, 5.0, t.size),
+        10.0,
+        95.0,
+    )
+
+    for obj_type, mode in (
+        ("panel_painting", "gradient"),
+        ("wooden_sculpture", "gradient"),
+        ("wooden_furniture", "acclimatized"),
+    ):
+        resp = compute_object_response(rh_full, obj_type)
+        mech = mechanical_strain_risk(resp.surface, resp.bulk, mode=mode)
+        exact = float(mech.exact_max_strain_ratio)
+        smooth = float(mech.max_strain_ratio)
+        assert exact <= smooth <= exact + 0.02, f"{obj_type}: exact={exact}, smooth={smooth}"
+
+    # Single-hour 30% RH spike out of 8760 h (regression test for LogMeanExp underestimation)
+    rh_spike = np.full(8760, 50.0, dtype=np.float64)
+    rh_spike[4000] = 30.0
+    rh_bulk_const = np.full(8760, 50.0, dtype=np.float64)
+
+    for mode in ("gradient", "acclimatized"):
+        mech_direct = mechanical_strain_risk(rh_spike, rh_bulk_const, mode=mode)
+        exact_d = float(mech_direct.exact_max_strain_ratio)
+        smooth_d = float(mech_direct.max_strain_ratio)
+        assert exact_d > 0.5
+        assert exact_d <= smooth_d <= exact_d + 0.02
+
+    for obj_type, mode in (
+        ("panel_painting", "gradient"),
+        ("wooden_sculpture", "gradient"),
+        ("wooden_furniture", "acclimatized"),
+    ):
+        resp_s = compute_object_response(rh_spike, obj_type)
+        mech_s = mechanical_strain_risk(resp_s.surface, resp_s.bulk, mode=mode)
+        exact_s = float(mech_s.exact_max_strain_ratio)
+        smooth_s = float(mech_s.max_strain_ratio)
+        assert exact_s <= smooth_s <= exact_s + 0.02, f"spike {obj_type}: {exact_s} vs {smooth_s}"
+
+    # Zero-strain full-year trace must remain bounded above exact (=0) and within +0.02
+    rh_const = np.full(8760, 50.0, dtype=np.float64)
+    mech_zero = mechanical_strain_risk(rh_const, rh_const, mode="gradient")
+    assert float(mech_zero.exact_max_strain_ratio) == 0.0
+    assert 0.0 <= float(mech_zero.max_strain_ratio) <= 0.02
 
 
 # ---------------------------------------------------------------------------

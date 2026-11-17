@@ -176,15 +176,13 @@ def _smooth_cap(x: Any, cap_val: float, beta: float) -> Any:
 
 
 def _smooth_max(x: Any, gamma: float, axis: int) -> Any:
+    """Smooth LogSumExp upper bound: ``max(x) <= LSE_gamma(x) <= max(x) + ln(N)/gamma``."""
     if gamma <= 0.0:
         raise ValueError(f"gamma must be strictly positive, got {gamma!r}")
     if _any_torch(x):
-        n = x.shape[axis]
-        return (torch.logsumexp(gamma * x, dim=axis) - np.log(n)) / gamma
-    n = x.shape[axis]
+        return torch.logsumexp(gamma * x, dim=axis) / gamma
     m = np.max(x, axis=axis, keepdims=True)
-    lse = np.squeeze(m, axis=axis) + np.log(np.sum(np.exp(gamma * (x - m)), axis=axis)) / gamma
-    return lse - np.log(n) / gamma
+    return np.squeeze(m, axis=axis) + np.log(np.sum(np.exp(gamma * (x - m)), axis=axis)) / gamma
 
 
 def _normalize_axis(axis: int, ndim: int) -> int:
@@ -597,7 +595,7 @@ def mechanical_strain_risk(
     eps_failure: float = WOOD_FAILURE_STRAIN_DEFAULT,
     smooth_abs_delta: float = 1e-8,
     smooth_beta_strain: float = 2e-4,
-    smooth_max_gamma: float = 2500.0,
+    smooth_max_gamma: float = 1000.0,
     time_axis: int = -1,
 ) -> MechanicalRiskResult:
     """Evaluate mechanical strain against yield and tensile-failure thresholds.
@@ -611,6 +609,16 @@ def mechanical_strain_risk(
       against ``rh_reference = long_term_mean_rh`` (if ``rh_reference is None``,
       defaults to the mean of ``rh_primary`` along ``time_axis``) per Martens (2012,
       Sec. 5.2.4, p. 105, Fig. 5.13).
+
+    Notes
+    -----
+    ``max_strain_ratio`` applies unnormalized LogSumExp (with ``smooth_max_gamma``
+    on the dimensionless ratio ``|strain| / eps_yield``) to a smooth upper bound
+    ``sqrt(ratio^2 + 1e-12) >= |strain| / eps_yield``, guaranteeing a conservative
+    upper bound ``exact_max_strain_ratio <= max_strain_ratio`` across full-year
+    (``N = 8760``) waveforms and single-hour impulse spikes alike (with
+    ``max_strain_ratio - exact_max_strain_ratio <= ln(N)/gamma + 1e-6 < 0.01``
+    at default ``gamma = 1000.0``).
     """
     if float(eps_yield) <= 0.0 or float(eps_failure) <= 0.0:
         raise ValueError("eps_yield and eps_failure must be strictly positive")
@@ -638,6 +646,13 @@ def mechanical_strain_risk(
 
     strain = wood_equilibrium_strain(rh_p) - wood_equilibrium_strain(rh_r)
     abs_strain = _smooth_abs(strain, delta=smooth_abs_delta)
+    ratio_raw = strain / float(eps_yield)
+    # Smooth upper bound on dimensionless ratio |strain| / eps_yield (strictly >= exact |ratio|)
+    ratio_upper = (
+        torch.sqrt(ratio_raw * ratio_raw + 1e-12)
+        if use_torch
+        else np.sqrt(ratio_raw * ratio_raw + 1e-12)
+    )
     # Tensile fracture happens on outer drying / contraction (strain < 0), Martens p. 104
     tensile_strain = -strain
 
@@ -660,7 +675,7 @@ def mechanical_strain_risk(
         return MechanicalRiskResult(
             strain=strain,
             abs_strain=abs_strain,
-            max_strain_ratio=abs_strain / float(eps_yield),
+            max_strain_ratio=ratio_upper,
             exact_max_strain_ratio=exact_abs / float(eps_yield),
             yield_exceedance_fraction_smooth=y_prob,
             failure_exceedance_fraction_smooth=f_prob,
@@ -672,7 +687,7 @@ def mechanical_strain_risk(
     return MechanicalRiskResult(
         strain=strain,
         abs_strain=abs_strain,
-        max_strain_ratio=_smooth_max(abs_strain, smooth_max_gamma, axis=axis) / float(eps_yield),
+        max_strain_ratio=_smooth_max(ratio_upper, smooth_max_gamma, axis=axis),
         exact_max_strain_ratio=_exact_max(exact_abs, axis=axis) / float(eps_yield),
         yield_exceedance_fraction_smooth=_reduce_mean(y_prob, axis=axis),
         failure_exceedance_fraction_smooth=_reduce_mean(f_prob, axis=axis),
@@ -698,7 +713,7 @@ def mechanical_strain_vjp_numpy(
     eps_failure: float = WOOD_FAILURE_STRAIN_DEFAULT,
     smooth_abs_delta: float = 1e-8,
     smooth_beta_strain: float = 2e-4,
-    smooth_max_gamma: float = 2500.0,
+    smooth_max_gamma: float = 1000.0,
     time_axis: int = -1,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Exact analytical VJP w.r.t. ``(rh_primary, rh_reference)`` in NumPy."""
@@ -707,6 +722,9 @@ def mechanical_strain_vjp_numpy(
     strain = np.asarray(wood_equilibrium_strain(rh_p) - wood_equilibrium_strain(rh_r), dtype=np.float64)
     abs_strain = np.sqrt(strain * strain + smooth_abs_delta * smooth_abs_delta) - smooth_abs_delta
     dabs_ds = strain / np.sqrt(strain * strain + smooth_abs_delta * smooth_abs_delta)
+    ratio_raw = strain / float(eps_yield)
+    ratio_upper = np.sqrt(ratio_raw * ratio_raw + 1e-12)
+    dratio_ds = (ratio_raw / ratio_upper) / float(eps_yield)
 
     g_max = np.asarray(grad_max_strain_ratio, dtype=np.float64)
     g_y = np.asarray(grad_yield_fraction_smooth, dtype=np.float64)
@@ -718,7 +736,7 @@ def mechanical_strain_vjp_numpy(
     df_ds = -f_p * (1.0 - f_p) / float(smooth_beta_strain)
 
     if rh_p.ndim == 0:
-        dloss_ds = (g_max / float(eps_yield) + g_y * dy_dabs) * dabs_ds + g_f * df_ds
+        dloss_ds = g_max * dratio_ds + g_y * dy_dabs * dabs_ds + g_f * df_ds
     else:
         axis = _normalize_axis(time_axis, rh_p.ndim)
         n_t = float(rh_p.shape[axis])
@@ -732,11 +750,10 @@ def mechanical_strain_vjp_numpy(
         g_y = np.broadcast_to(g_y, rh_p.shape)
         g_f = np.broadcast_to(g_f, rh_p.shape)
 
-        # Softmax weights for logsumexp derivative along time_axis
-        shifted = smooth_max_gamma * (abs_strain - np.max(abs_strain, axis=axis, keepdims=True))
+        shifted = smooth_max_gamma * (ratio_upper - np.max(ratio_upper, axis=axis, keepdims=True))
         exp_s = np.exp(shifted)
         sm_weights = exp_s / np.sum(exp_s, axis=axis, keepdims=True)
-        dloss_ds = (g_max * sm_weights / float(eps_yield) + (g_y / n_t) * dy_dabs) * dabs_ds + (
+        dloss_ds = g_max * sm_weights * dratio_ds + (g_y / n_t) * dy_dabs * dabs_ds + (
             g_f / n_t
         ) * df_ds
 
