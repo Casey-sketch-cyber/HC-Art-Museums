@@ -4,13 +4,13 @@
 
 ## 当前状态
 
-项目正在按 `docs/PLAN_ISCIENCE.md` 重做，目标期刊 iScience。旧稿已归档，不再修改。S0.1、S0.2、S0.3、S2.1、S5.2 已完成；S2.2 已提交待审查；其余任务见 `docs/TASKS.md`。
+项目正在按 `docs/PLAN_ISCIENCE.md` 重做，目标期刊 iScience。旧稿已归档，不再修改。S0.1、S0.2、S0.3、S2.1、S2.2、S5.2 已完成；其余任务见 `docs/TASKS.md`。
 
 旧代码和旧稿在 `/mnt/e/lzt/guangxi`。mock 与多区域实验的输出在 `results/` 和 `logs/`，不上传。
 
 ## 待办
 
-- [ ] 从 `docs/TASKS.md` 的 S1.1、S1.2、S2.3、S5.1 开始（S0.2、S0.3、S2.1 已完成，S2.2 已待审查）
+- [ ] 从 `docs/TASKS.md` 的 S1.1、S1.2、S2.3、S5.1 开始（依赖都已完成）
 - [x] 实验室计算主机硬件配置已实测登记：WSL2 Ubuntu 22.04，CPU 为 Intel Xeon Gold 6226R @ 2.90 GHz（32 物理核 / 64 线程），内存 235 GiB，GPU 为 2× NVIDIA RTX A6000（每卡 48 GiB；运行前须先检查其他课题进程占用，避免抢占在跑显存）
 - [ ] 关口 G1（任务 S3.4）出结果后停下，等用户确认走路线 A 还是 B
 - [ ] 用户如能提供之前两次投稿的审稿意见，放到 `docs/reviews/`，并对照调整优先级
@@ -25,6 +25,11 @@
 ---
 
 ## 工作记录
+
+### 2026-11-17 · claude · main（审查与合并）
+- **完成**：审查并合并 PR #8（S2.2）。`pytest tests` 27 项通过、1 项 torch 专测跳过；用逐步循环独立对照并行扫描，一整年逐时数据最大误差 4.4e-12。S2.2 状态改为"完成"。
+- **未独立核实**：Martens (2012) Table 5.1 的具体数值和 t95 = 3τ 换算，写 S5.3 前对照原文。
+- **给 S2.3 的提醒**：纸质藏品用空气 T/RH 直接算化学损伤，不要从实验里漏掉；漆器家具表层与整体 τ 相同，机械风险按整体 RH 相对长期均值的偏离计算；布面油画暂缺，论文里写明覆盖范围。
 
 ### 2026-11-16 · antigravity · antigravity/S2.2-object-response
 - **完成**：完成 S2.2 文物吸湿 RH 一阶低通响应模型及文献时间常数定标。新增 `configs/objects.yaml`、`src/museum_v2/__init__.py`、`src/museum_v2/objects.py`（实现精确零阶保持离散化与 $O(\log_2 T)$ 并行结合扫描，兼容 NumPy 数值阵列 + 解析伴随 VJP 及 PyTorch `Tensor` / `nn.Module` 自动微分）及单元测试 `tests/test_objects.py`。
