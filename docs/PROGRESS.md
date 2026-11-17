@@ -4,13 +4,13 @@
 
 ## 当前状态
 
-项目正在按 `docs/PLAN_ISCIENCE.md` 重做，目标期刊 iScience。旧稿已归档，不再修改。S0.1、S0.2、S0.3、S2.1、S5.2 已完成；其余任务见 `docs/TASKS.md`。
+项目正在按 `docs/PLAN_ISCIENCE.md` 重做，目标期刊 iScience。旧稿已归档，不再修改。S0.1、S0.2、S0.3、S2.1、S5.2 已完成；S2.2 已提交待审查；其余任务见 `docs/TASKS.md`。
 
 旧代码和旧稿在 `/mnt/e/lzt/guangxi`。mock 与多区域实验的输出在 `results/` 和 `logs/`，不上传。
 
 ## 待办
 
-- [ ] 从 `docs/TASKS.md` 的 S1.1、S1.2、S2.2、S5.1 开始（依赖都已完成）
+- [ ] 从 `docs/TASKS.md` 的 S1.1、S1.2、S2.3、S5.1 开始（S0.2、S0.3、S2.1 已完成，S2.2 已待审查）
 - [x] 实验室计算主机硬件配置已实测登记：WSL2 Ubuntu 22.04，CPU 为 Intel Xeon Gold 6226R @ 2.90 GHz（32 物理核 / 64 线程），内存 235 GiB，GPU 为 2× NVIDIA RTX A6000（每卡 48 GiB；运行前须先检查其他课题进程占用，避免抢占在跑显存）
 - [ ] 关口 G1（任务 S3.4）出结果后停下，等用户确认走路线 A 还是 B
 - [ ] 用户如能提供之前两次投稿的审稿意见，放到 `docs/reviews/`，并对照调整优先级
@@ -25,6 +25,22 @@
 ---
 
 ## 工作记录
+
+### 2026-11-16 · antigravity · antigravity/S2.2-object-response
+- **完成**：完成 S2.2 文物吸湿 RH 一阶低通响应模型及文献时间常数定标。新增 `configs/objects.yaml`、`src/museum_v2/__init__.py`、`src/museum_v2/objects.py`（实现精确零阶保持离散化与 $O(\log_2 T)$ 并行结合扫描，兼容 NumPy 数值阵列 + 解析伴随 VJP 及 PyTorch `Tensor` / `nn.Module` 自动微分）及单元测试 `tests/test_objects.py`。
+  - **已核实实现的藏品类别**（均按 Martens 2012 第 5 章 Sec. 5.2.1 pp. 98–101、Eq. 5.2 p. 99 与 Table 5.1 p. 101 所报告的 95% 阶跃响应时间 $t_{95}$，经公式 $\tau = t_{95}/3$ 严格换算为标准 $1-1/e$（63.212%）响应时间常数；温平衡按 Martens 2012 p. 101 取为与空气同步）：
+    1. `panel_painting`（10 mm 单面油彩清漆木板画）：表层 $t_{95}=4.3\text{ d} \Rightarrow \tau_{\text{surface}} = 34.4\text{ h}$，整体 $t_{95}=26\text{ d} \Rightarrow \tau_{\text{bulk}} = 208.0\text{ h}$（`martens2012thesis` pp. 98–101，Eq. 5.2 p. 99，Fig. 5.8 p. 100，Table 5.1 p. 101）。
+    2. `wooden_sculpture`（40 mm 实木薄漆雕塑）：表层 $t_{95}=10\text{ h} \Rightarrow \tau_{\text{surface}} = 10/3\text{ h} \approx 3.333\text{ h}$，内层/整体 $t_{95}=15\text{ d} \Rightarrow \tau_{\text{bulk}} = 120.0\text{ h}$（`martens2012thesis` pp. 97–101，Eq. 5.2 p. 99，Fig. 5.8 p. 100，Table 5.1 p. 101）。
+    3. `wooden_furniture`（完整涂层漆器木家具/漆盒）：完整涂漆相当于双面 26 mm 木材阻隔、涂层下表层与整体同步，$t_{95}=40\text{ d} \Rightarrow \tau_{\text{surface}} = \tau_{\text{bulk}} = 320.0\text{ h}$（`martens2012thesis` pp. 54, 97, 98–101, 103, 105，Table 5.1 p. 101）；另附注 `knight2007response`（pp. 85–87）针对带接缝裂纹的镀金木桌 41 h 滞后实测作为有损涂层对照。
+  - **按验收要求未实现并在本栏说明的候选类别**（对应 `PLAN_ISCIENCE.md` §5.2，"文献里查不到的类别不实现，并在 PROGRESS 里说明"）：
+    1. `paper`（纸质 / 档案）：Martens (2012, pp. 100–101, Table 5.1 p. 101) 对单张纸仅给出定性词 `"minutes"`、对书本仅给出宽泛区间（`"hours to three days"` 至 `"6 to 9 months"`），未给出可分开的表层/整体一阶数值常数；Kupczak 等 (2018, *Cellulose* 25:2873–2884, p. 2882 Eq. 10) 所测 $k_i = 3.8\times 10^{-3}\text{ s}^{-1}$（约 4.4 min）系真空无空气条件下单根纤维数据，书籍则用二维非线性 PDE（Eqs. 11–12）而非集总表层/整体 $\tau$；在逐时步长 $\Delta t = 1\text{ h}$ 下及 HERIe 化学降解模块中均直接采用空气瞬时 T/RH 评估。
+    2. `canvas_painting`（布面油画）：Martens (2012, Table 5.1 p. 101; Sec. 5.4 p. 108 明确写明 `"Only four objects are assessed"`)、HERIe 机械损伤手册及 Knight & Thickett (2007) 均未给出布面油画的独立表层/整体 RH 时间常数；未能打开包含可核对页码与表格出处的布面油画一阶 $\tau_{\text{surface}}, \tau_{\text{bulk}}$ 一手文献，按规范不予编造实现（S2.3/S2.4 对布面油画的化学寿命倍数评估可直接以空气瞬时温湿度为输入，与 HERIe 化学模块一致）。
+    3. `bronze`（青铜 / 金属）：金属不具吸湿渗透性，水蒸气不向金属内部扩散，保护文献中不存在吸湿表层/整体时间常数（S2.3 青铜腐蚀直接基于空气 RH 超过临界 RH 计算）。
+- **验证**：
+  1. 在实验室计算主机项目 `.venv`（无 PyTorch 环境，模拟纯 NumPy/YAML 审查容器）运行 `.venv/bin/pytest tests/ -v`，共 27 项通过、1 项 PyTorch 专测按 `@pytest.mark.skipif(not HAS_TORCH)` 跳过（用时 12.31 秒），覆盖文献出处及 `references.bib` key 交叉校验、全部 3 类藏品表层与整体的 63.2%（$1-1/e$）及 95.0%（$1-e^{-3}$）阶跃响应精度、8760 h 序列与循环逐点一致、正弦幅值衰减及 NumPy 解析 VJP 与有限差分比对。
+  2. 在计算主机同 Python 3.12 版本的含 PyTorch 环境运行 `tests/test_objects.py`，9 项全部通过（用时 34.63 秒），含 `torch.autograd.gradcheck`（对 `rh_air`、`tau_hours`、`rh_init` 全部通过）、`ObjectResponseModel`（`nn.Module`）反向传播与 NumPy 解析 VJP 精度比对（误差 $< 10^{-12}$）。
+- **未完成**：S1.1、S1.2、S2.3（现可基于本分支开展）、S5.1 及后续任务。
+- **注意 / 坑**：`tau_hours` 与 `Martens (2012)` Table 5.1 之间存在精确的 3 倍换算关系（Table 5.1 给出的是 95% 阶跃时间 $t_{95}$，而一阶指数 $1-e^{-t/\tau}$ 在 $t=\tau$ 达到 63.2%、在 $t=3\tau$ 达到 95.0%，与 Martens Eq. 5.2 $a = \exp(-3\Delta t/t_{95})$ 一致）；后续 S2.3、S2.4 与 S5.3 写作引用 Table 5.1 数字时请保持此口径统一，避免把 95% 时间直接当作 63% 时间常数导致响应慢 3 倍。
 
 ### 2026-11-16 · claude · main（审查与合并）
 - **完成**：审查并合并 PR #7（S0.3）。独立重跑 `pytest tests` 19 项通过；用 bibtex + pdflatex 编译全部 75 条无错误；抽查 7 条新增文献的作者、卷期页码和 DOI，均与出版方或索引库记录一致。S0.3 状态改为"完成"。
