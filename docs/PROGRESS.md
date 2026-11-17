@@ -26,6 +26,10 @@
 
 ## 工作记录
 
+### 2026-11-17 · claude · claude/reference-loop-test
+- **完成**：把审查 S2.2 时用的独立核验写成回归测试 `tests/test_objects_reference_loop.py`（17 项）：用逐步循环对照 `first_order_lowpass` 的并行扫描（一整年逐时数据、多个 τ、有无初值、float32、批量与 `time_axis=0`），并按一阶理论检查日波动衰减幅度。`docs/TASKS.md` 通用约定加了一条：用加速算法时要附朴素参照实现测试。
+- **注意**：以后改 `first_order_lowpass` 必须让这个测试继续通过；有意改递推公式时，同一提交里改 `reference_loop` 并在 `docs/DECISIONS.md` 说明。
+
 ### 2026-11-17 · claude · main（审查与合并）
 - **完成**：审查并合并 PR #8（S2.2）。`pytest tests` 27 项通过、1 项 torch 专测跳过；用逐步循环独立对照并行扫描，一整年逐时数据最大误差 4.4e-12。S2.2 状态改为"完成"。
 - **未独立核实**：Martens (2012) Table 5.1 的具体数值和 t95 = 3τ 换算，写 S5.3 前对照原文。
