@@ -1,0 +1,113 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="460" viewBox="0 0 1040 460">
+<rect width="100%" height="100%" fill="#ffffff"/>
+<text x="520" y="28" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="bold" fill="#0f172a">Hygroscopic Buffering of Real Museum RH Fluctuations (D1-D4)</text>
+<text x="410.0" y="54" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" font-weight="bold" fill="#334155">Short-Term 24h P95 Swing (%RH)</text>
+<text x="810.0" y="54" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" font-weight="bold" fill="#334155">Overall P95-P05 Span (%RH)</text>
+<rect x="230" y="62" width="12" height="10" fill="#475569" rx="2"/>
+<text x="246" y="71" font-family="Arial,sans-serif" font-size="10" fill="#1e293b">Air RH</text>
+<rect x="375" y="62" width="12" height="10" fill="#2563eb" rx="2"/>
+<text x="391" y="71" font-family="Arial,sans-serif" font-size="10" fill="#1e293b">Sculpture surf (3.3h)</text>
+<rect x="520" y="62" width="12" height="10" fill="#0d9488" rx="2"/>
+<text x="536" y="71" font-family="Arial,sans-serif" font-size="10" fill="#1e293b">Panel surf (34.4h)</text>
+<rect x="665" y="62" width="12" height="10" fill="#d97706" rx="2"/>
+<text x="681" y="71" font-family="Arial,sans-serif" font-size="10" fill="#1e293b">Panel bulk (208h)</text>
+<rect x="810" y="62" width="12" height="10" fill="#7c3aed" rx="2"/>
+<text x="826" y="71" font-family="Arial,sans-serif" font-size="10" fill="#1e293b">Furniture (320h)</text>
+<text x="228" y="107" text-anchor="end" font-family="Arial,sans-serif" font-size="11" fill="#0f172a">D1 Vienna NHM (All 197 loggers)</text>
+<line x1="240" y1="85" x2="240" y2="125" stroke="#cbd5e1" stroke-width="1"/>
+<line x1="640" y1="85" x2="640" y2="125" stroke="#cbd5e1" stroke-width="1"/>
+<rect x="240" y="87" width="66.9" height="7" fill="#475569"/>
+<rect x="640" y="87" width="212.8" height="7" fill="#475569"/>
+<rect x="240" y="95" width="50.7" height="7" fill="#2563eb"/>
+<rect x="640" y="95" width="211.4" height="7" fill="#2563eb"/>
+<rect x="240" y="103" width="20.9" height="7" fill="#0d9488"/>
+<rect x="640" y="103" width="201.2" height="7" fill="#0d9488"/>
+<rect x="240" y="111" width="5.7" height="7" fill="#d97706"/>
+<rect x="640" y="111" width="184.5" height="7" fill="#d97706"/>
+<rect x="240" y="119" width="4.1" height="7" fill="#7c3aed"/>
+<rect x="640" y="119" width="184.0" height="7" fill="#7c3aed"/>
+<text x="228" y="159" text-anchor="end" font-family="Arial,sans-serif" font-size="11" fill="#0f172a">D2 Danish Basic Storage (8 zones)</text>
+<line x1="240" y1="137" x2="240" y2="177" stroke="#cbd5e1" stroke-width="1"/>
+<line x1="640" y1="137" x2="640" y2="177" stroke="#cbd5e1" stroke-width="1"/>
+<rect x="240" y="139" width="27.9" height="7" fill="#475569"/>
+<rect x="640" y="139" width="73.1" height="7" fill="#475569"/>
+<rect x="240" y="147" width="18.0" height="7" fill="#2563eb"/>
+<rect x="640" y="147" width="70.1" height="7" fill="#2563eb"/>
+<rect x="240" y="155" width="6.9" height="7" fill="#0d9488"/>
+<rect x="640" y="155" width="65.8" height="7" fill="#0d9488"/>
+<rect x="240" y="163" width="2.2" height="7" fill="#d97706"/>
+<rect x="640" y="163" width="63.8" height="7" fill="#d97706"/>
+<rect x="240" y="171" width="1.6" height="7" fill="#7c3aed"/>
+<rect x="640" y="171" width="61.9" height="7" fill="#7c3aed"/>
+<text x="228" y="211" text-anchor="end" font-family="Arial,sans-serif" font-size="11" fill="#0f172a">D2 Danish Dry Storage (3 zones)</text>
+<line x1="240" y1="189" x2="240" y2="229" stroke="#cbd5e1" stroke-width="1"/>
+<line x1="640" y1="189" x2="640" y2="229" stroke="#cbd5e1" stroke-width="1"/>
+<rect x="240" y="191" width="34.9" height="7" fill="#475569"/>
+<rect x="640" y="191" width="40.6" height="7" fill="#475569"/>
+<rect x="240" y="199" width="17.7" height="7" fill="#2563eb"/>
+<rect x="640" y="199" width="41.0" height="7" fill="#2563eb"/>
+<rect x="240" y="207" width="4.7" height="7" fill="#0d9488"/>
+<rect x="640" y="207" width="40.8" height="7" fill="#0d9488"/>
+<rect x="240" y="215" width="1.3" height="7" fill="#d97706"/>
+<rect x="640" y="215" width="42.0" height="7" fill="#d97706"/>
+<rect x="240" y="223" width="1.0" height="7" fill="#7c3aed"/>
+<rect x="640" y="223" width="41.6" height="7" fill="#7c3aed"/>
+<text x="228" y="263" text-anchor="end" font-family="Arial,sans-serif" font-size="11" fill="#0f172a">D3 Salta Exterior &amp; Gallery</text>
+<line x1="240" y1="241" x2="240" y2="281" stroke="#cbd5e1" stroke-width="1"/>
+<line x1="640" y1="241" x2="640" y2="281" stroke="#cbd5e1" stroke-width="1"/>
+<rect x="240" y="243" width="295.7" height="7" fill="#475569"/>
+<rect x="640" y="243" width="295.7" height="7" fill="#475569"/>
+<rect x="240" y="251" width="215.1" height="7" fill="#2563eb"/>
+<rect x="640" y="251" width="249.7" height="7" fill="#2563eb"/>
+<rect x="240" y="259" width="73.1" height="7" fill="#0d9488"/>
+<rect x="640" y="259" width="166.6" height="7" fill="#0d9488"/>
+<rect x="240" y="267" width="21.3" height="7" fill="#d97706"/>
+<rect x="640" y="267" width="104.7" height="7" fill="#d97706"/>
+<rect x="240" y="275" width="14.8" height="7" fill="#7c3aed"/>
+<rect x="640" y="275" width="90.3" height="7" fill="#7c3aed"/>
+<text x="228" y="315" text-anchor="end" font-family="Arial,sans-serif" font-size="11" fill="#0f172a">D3 Salta Cabildo Rooms (20 traces)</text>
+<line x1="240" y1="293" x2="240" y2="333" stroke="#cbd5e1" stroke-width="1"/>
+<line x1="640" y1="293" x2="640" y2="333" stroke="#cbd5e1" stroke-width="1"/>
+<rect x="240" y="295" width="93.3" height="7" fill="#475569"/>
+<rect x="640" y="295" width="123.0" height="7" fill="#475569"/>
+<rect x="240" y="303" width="63.4" height="7" fill="#2563eb"/>
+<rect x="640" y="303" width="110.8" height="7" fill="#2563eb"/>
+<rect x="240" y="311" width="18.7" height="7" fill="#0d9488"/>
+<rect x="640" y="311" width="82.6" height="7" fill="#0d9488"/>
+<rect x="240" y="319" width="5.9" height="7" fill="#d97706"/>
+<rect x="640" y="319" width="43.7" height="7" fill="#d97706"/>
+<rect x="240" y="327" width="4.1" height="7" fill="#7c3aed"/>
+<rect x="640" y="327" width="36.4" height="7" fill="#7c3aed"/>
+<text x="228" y="367" text-anchor="end" font-family="Arial,sans-serif" font-size="11" fill="#0f172a">D3 Salta Cabildo Vitrines (5 winter)</text>
+<line x1="240" y1="345" x2="240" y2="385" stroke="#cbd5e1" stroke-width="1"/>
+<line x1="640" y1="345" x2="640" y2="385" stroke="#cbd5e1" stroke-width="1"/>
+<rect x="240" y="347" width="30.6" height="7" fill="#475569"/>
+<rect x="640" y="347" width="54.6" height="7" fill="#475569"/>
+<rect x="240" y="355" width="23.1" height="7" fill="#2563eb"/>
+<rect x="640" y="355" width="53.7" height="7" fill="#2563eb"/>
+<rect x="240" y="363" width="10.1" height="7" fill="#0d9488"/>
+<rect x="640" y="363" width="58.7" height="7" fill="#0d9488"/>
+<rect x="240" y="371" width="3.3" height="7" fill="#d97706"/>
+<rect x="640" y="371" width="35.3" height="7" fill="#d97706"/>
+<rect x="240" y="379" width="2.4" height="7" fill="#7c3aed"/>
+<rect x="640" y="379" width="26.9" height="7" fill="#7c3aed"/>
+<text x="228" y="419" text-anchor="end" font-family="Arial,sans-serif" font-size="11" fill="#0f172a">D4 Medellin Storage (9 cont. sensors)</text>
+<line x1="240" y1="397" x2="240" y2="437" stroke="#cbd5e1" stroke-width="1"/>
+<line x1="640" y1="397" x2="640" y2="437" stroke="#cbd5e1" stroke-width="1"/>
+<rect x="240" y="399" width="124.2" height="7" fill="#475569"/>
+<rect x="640" y="399" width="149.1" height="7" fill="#475569"/>
+<rect x="240" y="407" width="84.4" height="7" fill="#2563eb"/>
+<rect x="640" y="407" width="125.7" height="7" fill="#2563eb"/>
+<rect x="240" y="415" width="23.0" height="7" fill="#0d9488"/>
+<rect x="640" y="415" width="86.3" height="7" fill="#0d9488"/>
+<rect x="240" y="423" width="6.4" height="7" fill="#d97706"/>
+<rect x="640" y="423" width="47.3" height="7" fill="#d97706"/>
+<rect x="240" y="431" width="4.8" height="7" fill="#7c3aed"/>
+<rect x="640" y="431" width="36.7" height="7" fill="#7c3aed"/>
+<text x="240.0" y="469" text-anchor="middle" font-family="Arial,sans-serif" font-size="10" fill="#475569">0%</text>
+<text x="640.0" y="469" text-anchor="middle" font-family="Arial,sans-serif" font-size="10" fill="#475569">0%</text>
+<text x="410.0" y="469" text-anchor="middle" font-family="Arial,sans-serif" font-size="10" fill="#475569">24%</text>
+<text x="810.0" y="469" text-anchor="middle" font-family="Arial,sans-serif" font-size="10" fill="#475569">21%</text>
+<text x="580.0" y="469" text-anchor="middle" font-family="Arial,sans-serif" font-size="10" fill="#475569">49%</text>
+<text x="980.0" y="469" text-anchor="middle" font-family="Arial,sans-serif" font-size="10" fill="#475569">42%</text>
+</svg>
