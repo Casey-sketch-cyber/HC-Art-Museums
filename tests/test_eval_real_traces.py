@@ -15,6 +15,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from scripts.v2.eval_real_traces import (  # noqa: E402
+    ContiguousSegment,
     PreparedTrace,
     _aggregate_group,
     clean_and_regularize_series,
@@ -177,3 +178,86 @@ def test_loaders_enforce_d1_dedup_and_d4_lscr_exclusion(tmp_path: Path):
     d4_traces = load_d4_traces(d4_dir)
     assert len(d4_traces) == 1
     assert d4_traces[0].source_files == ("D4/Museum_Nov2019/1608daa8654c.txt",)
+
+
+def test_initial_value_sensitivity_constant_zero_and_step_difference():
+    """Constant RH yields 0 strain for both initializations; start step reveals sensitivity."""
+    dt_h = 0.25
+    n_steps = 14 * 24 * 4  # 14 days at 15 min
+    t0 = datetime(2022, 5, 1, tzinfo=timezone.utc).timestamp()
+    t1 = t0 + (n_steps - 1) * dt_h * 3600.0
+
+    # 1) Constant RH trace -> both initializations give 0 mechanical strain ratio
+    const_seg = ContiguousSegment(
+        dt_hours=dt_h,
+        start_epoch_s=t0,
+        end_epoch_s=t1,
+        temp_c=np.full(n_steps, 20.0),
+        rh_percent=np.full(n_steps, 50.0),
+    )
+    const_trace = PreparedTrace(
+        dataset_id="SYNTH",
+        trace_id="const",
+        zone_group="test",
+        label="Constant 50% RH",
+        dt_hours=dt_h,
+        source_files=("synthetic",),
+        segments=(const_seg,),
+        n_raw_samples=n_steps,
+        n_valid_steps=n_steps,
+        n_spikes_replaced=0,
+        duration_hours=n_steps * dt_h,
+    )
+    res_const = evaluate_prepared_trace(const_trace)
+    assert res_const["max_init_offset_rh"] == 0.0
+    for cat in ("panel_painting", "wooden_sculpture", "wooden_furniture"):
+        assert res_const["objects"][cat]["mechanical"]["exact_max_strain_ratio"] == 0.0
+        assert (
+            res_const["objects"][cat]["mechanical_init_segment_mean"]["exact_max_strain_ratio"] == 0.0
+        )
+
+    # 2) Extreme initial sample stepping immediately to steady 55% RH
+    # first_sample initializes the object at 25% creating a large transient gradient/offset,
+    # whereas segment_mean initializes near ~55% so bulk/furniture remain close to 55%.
+    rh_step = np.full(n_steps, 55.0)
+    rh_step[0] = 25.0
+    step_seg = ContiguousSegment(
+        dt_hours=dt_h,
+        start_epoch_s=t0,
+        end_epoch_s=t1,
+        temp_c=np.full(n_steps, 20.0),
+        rh_percent=rh_step,
+    )
+    step_trace = PreparedTrace(
+        dataset_id="SYNTH",
+        trace_id="start_step",
+        zone_group="test",
+        label="Start step 25->55% RH",
+        dt_hours=dt_h,
+        source_files=("synthetic",),
+        segments=(step_seg,),
+        n_raw_samples=n_steps,
+        n_valid_steps=n_steps,
+        n_spikes_replaced=0,
+        duration_hours=n_steps * dt_h,
+    )
+    res_step = evaluate_prepared_trace(step_trace)
+    assert res_step["max_init_offset_rh"] > 29.0
+
+    # Furniture (acclimatized vs global mean ~55%): huge transient under first_sample, ~0 under segment_mean
+    furn_first = res_step["objects"]["wooden_furniture"]["mechanical"]["exact_max_strain_ratio"]
+    furn_mean = res_step["objects"]["wooden_furniture"]["mechanical_init_segment_mean"][
+        "exact_max_strain_ratio"
+    ]
+    assert furn_first > 0.8
+    assert furn_mean < 0.05
+    assert abs(furn_first - furn_mean) > 0.7
+
+    # Panel painting (gradient): first_sample creates sustained surface-vs-bulk gradient; segment_mean sees tiny single-step blip
+    panel_first = res_step["objects"]["panel_painting"]["mechanical"]["exact_max_strain_ratio"]
+    panel_mean = res_step["objects"]["panel_painting"]["mechanical_init_segment_mean"][
+        "exact_max_strain_ratio"
+    ]
+    assert panel_first > 0.5
+    assert panel_mean < 0.1
+    assert abs(panel_first - panel_mean) > 0.4

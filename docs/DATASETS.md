@@ -37,7 +37,7 @@
   - `NH083.csv` 在 `14233546`（`2021-07-16` 至 `2022-04-21`）与 `14233508`（`2022-04-21` 至 `2023-03-08`）分属前后两段，去重拼接后对应 197 台唯一记录仪。
 - **引用来源**：
   - 数据集：Brimblecombe, P., Querner, P., & Landsberger, B. (2024). *Natural History Museum Vienna Floors B,0,1 / Floors 2,3 / Floor 4 / Plans* [Data set]. Zenodo. `https://doi.org/10.5281/zenodo.14233429`、`10.5281/zenodo.14233508`、`10.5281/zenodo.14233546`、`10.5281/zenodo.14503914`。
-  - 论文：Brimblecombe, P., Querner, P., & Landsberger, B. (2025). Microclimate of the Natural History Museum, Vienna. *Heritage*, 8(4), 124. `https://doi.org/10.3390/heritage8040124`。
+  - 论文：Brimblecombe, P., Bibl, A., Fischer, C., Pristacz, H., & Querner, P. (2025). Microclimate of the Natural History Museum, Vienna. *Heritage*, 8(4), 124. `https://doi.org/10.3390/heritage8040124`。
 
 ### D2 · 丹麦低能耗博物馆库房（可用：用途 1、2、3）
 

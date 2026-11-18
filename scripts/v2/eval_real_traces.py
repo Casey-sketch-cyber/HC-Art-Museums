@@ -351,12 +351,27 @@ def evaluate_prepared_trace(trace: PreparedTrace) -> dict[str, Any]:
     # Air fluctuation baseline
     air_fluc = summarize_fluctuations(segs, [seg.rh_percent for seg in segs])
 
-    # Precompute S2.2 object responses per contiguous segment
+    # Precompute S2.2 object responses per contiguous segment under two initializations:
+    # 1) "first_sample" (default): object starts equilibrated with seg.rh_percent[0]
+    # 2) "segment_mean" (sensitivity): object starts equilibrated with seg mean RH
+    seg_means = [float(np.mean(seg.rh_percent)) for seg in segs]
+    max_init_offset_rh = max(abs(float(seg.rh_percent[0]) - sm) for seg, sm in zip(segs, seg_means))
+
     obj_resps: dict[str, list[Any]] = {cat: [] for cat in specs}
+    obj_resps_mean: dict[str, list[Any]] = {cat: [] for cat in specs}
     for cat, spec in specs.items():
-        for seg in segs:
+        for seg, sm in zip(segs, seg_means):
             obj_resps[cat].append(
                 compute_object_response(seg.rh_percent, spec, dt_hours=seg.dt_hours)
+            )
+            obj_resps_mean[cat].append(
+                compute_object_response(
+                    seg.rh_percent,
+                    spec,
+                    dt_hours=seg.dt_hours,
+                    rh_init_surface=sm,
+                    rh_init_bulk=sm,
+                )
             )
 
     def _agg_chem(rh_list: list[np.ndarray], ea: float) -> dict[str, float]:
@@ -393,12 +408,12 @@ def evaluate_prepared_trace(trace: PreparedTrace) -> dict[str, Any]:
             "exceedance_rh_hours": round(rh_h, 4),
         }
 
-    def _agg_mech(cat: str, mode: str) -> dict[str, Any]:
+    def _agg_mech(resps_list: list[Any], mode: str) -> dict[str, Any]:
         max_exact = 0.0
         max_smooth = 0.0
         yield_h = 0.0
         fail_h = 0.0
-        for seg, resp, wh in zip(segs, obj_resps[cat], seg_hours):
+        for resp, wh in zip(resps_list, seg_hours):
             if mode == "gradient":
                 res = mechanical_strain_risk(resp.surface, resp.bulk, mode="gradient")
             else:
@@ -440,9 +455,11 @@ def evaluate_prepared_trace(trace: PreparedTrace) -> dict[str, Any]:
         def _ratios(obj_f: dict[str, Any]) -> dict[str, Any]:
             air_sw = air_fluc["swing_24h_p95"]
             air_90 = air_fluc["span_p95_p05"]
+            air_sd = air_fluc["std"]
             r_out: dict[str, Any] = {
                 "swing_24h_p95_ratio": round(obj_f["swing_24h_p95"] / air_sw, 4) if air_sw > 0 else 0.0,
                 "span_p95_p05_ratio": round(obj_f["span_p95_p05"] / air_90, 4) if air_90 > 0 else 0.0,
+                "std_ratio": round(obj_f["std"] / air_sd, 4) if air_sd > 0 else 0.0,
             }
             if air_fluc["hp30_p93_p07"] and obj_f["hp30_p93_p07"] is not None and air_fluc["hp30_p93_p07"] > 0:
                 r_out["hp30_p93_p07_ratio"] = round(obj_f["hp30_p93_p07"] / air_fluc["hp30_p93_p07"], 4)
@@ -462,7 +479,8 @@ def evaluate_prepared_trace(trace: PreparedTrace) -> dict[str, Any]:
             "bulk_attenuation_ratio": _ratios(bulk_fluc),
             "chemical": _agg_chem(surfs, ACTIVATION_ENERGY_VARNISH_J_MOL),
             "biological": _agg_bio(surfs),
-            "mechanical": _agg_mech(cat, mode),
+            "mechanical": _agg_mech(obj_resps[cat], mode),
+            "mechanical_init_segment_mean": _agg_mech(obj_resps_mean[cat], mode),
             "proofed_envelope": {
                 "rh_min": round(proof_env.rh_min, 3),
                 "rh_max": round(proof_env.rh_max, 3),
@@ -501,6 +519,7 @@ def evaluate_prepared_trace(trace: PreparedTrace) -> dict[str, Any]:
         "n_raw_samples": trace.n_raw_samples,
         "n_valid_steps": trace.n_valid_steps,
         "n_spikes_replaced": trace.n_spikes_replaced,
+        "max_init_offset_rh": round(max_init_offset_rh, 4),
         "source_files": list(trace.source_files),
         "temp_stats": {
             "mean": round(float(np.mean(t_all)), 3),
@@ -915,6 +934,9 @@ def _aggregate_group(traces: list[dict[str, Any]], group_name: str) -> dict[str,
             "bulk_span_p95_p05_ratio": _stats(
                 [t["objects"][cat]["bulk_attenuation_ratio"]["span_p95_p05_ratio"] for t in traces]
             ),
+            "bulk_std_ratio": _stats(
+                [t["objects"][cat]["bulk_attenuation_ratio"]["std_ratio"] for t in traces]
+            ),
             "lm_equivalent": _stats([t["objects"][cat]["chemical"]["lm_equivalent"] for t in traces]),
             "germination_index_per_year": _stats(
                 [t["objects"][cat]["biological"]["germination_index_per_year"] for t in traces]
@@ -922,8 +944,14 @@ def _aggregate_group(traces: list[dict[str, Any]], group_name: str) -> dict[str,
             "exact_max_strain_ratio": _stats(
                 [t["objects"][cat]["mechanical"]["exact_max_strain_ratio"] for t in traces]
             ),
+            "exact_max_strain_ratio_init_mean": _stats(
+                [t["objects"][cat]["mechanical_init_segment_mean"]["exact_max_strain_ratio"] for t in traces]
+            ),
             "yield_exceedance_fraction": _stats(
                 [t["objects"][cat]["mechanical"]["yield_exceedance_fraction"] for t in traces]
+            ),
+            "yield_exceedance_fraction_init_mean": _stats(
+                [t["objects"][cat]["mechanical_init_segment_mean"]["yield_exceedance_fraction"] for t in traces]
             ),
         }
     return out
