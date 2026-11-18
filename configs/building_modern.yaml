@@ -1,0 +1,153 @@
+# Purpose-built modern museum building configuration (5-zone ROM, Layer A).
+# Zone geometry, adjacencies, nominal internal loads, and baseline envelope R/U values
+# are extracted directly from src/museum/assets/5ZoneAutoDXVAV_multizone.epJSON.
+
+schema_version: 1
+tier: modern
+description: >
+  现代新建恒温恒湿博物馆（对应 Sinergym 5ZoneAutoDXVAV_multizone 基线构造）：
+  外墙与屋面具较高保温，双层空气间层玻璃窗，气密性良好，配有常规建筑蓄热与内饰吸湿缓冲层，
+  热泵型冷水机组+燃气/电热再热与独立加湿。
+
+constants:
+  rho_air_kg_m3: 1.2041         # Dry air reference density at 20 C, 101.325 kPa (ASHRAE HOF)
+  cp_air_j_kg_k: 1006.0         # Dry air specific heat at constant pressure (ASHRAE HOF)
+  solar_to_air_fraction: 0.30   # Assumption: 30% transmitted solar to air, 70% to interior thermal mass
+  internal_rad_fraction: 0.50   # Effective radiative split of lighting/equipment/occupant sensible gain to thermal mass
+  person_sensible_w: 75.0       # Sedentary/standing gallery visitor sensible heat (ASHRAE HOF Ch. 18, ~75 W sensible)
+  person_latent_kg_s: 1.85e-5   # ~45 W latent (~66.7 g/h = 1.85e-5 kg/s; ASHRAE HOF Ch. 18 light standing activity)
+
+envelope:
+  u_wall_w_m2_k: 0.382          # Directly calculated from WALL-1 (PW03+IN02+GP01+WD01 + R_si+R_se=0.17) in epJSON
+  u_roof_w_m2_k: 0.269          # Directly calculated from ROOF-1 (RG01+BR01+IN46+WD01 + 0.17) in epJSON
+  u_window_w_m2_k: 2.72         # Standard double clear air-filled glazing (ASHRAE HOF Fenestration / Dbl Clr 3mm/13mm Air)
+  u_ground_w_m2_k: 0.35         # Effective slab-on-grade ground coupling (assumption; epJSON raw slab U_1D=1.627 without soil resistance)
+  u_interzone_wall_w_m2_k: 1.624 # Directly calculated from INT-WALL-1 (GP02+AL21+GP02 + 2*0.13) in epJSON
+  window_shgc: 0.68             # Approximate solar heat gain coefficient for Dbl Clr + Sgl Grey mix (epJSON window materials)
+  infiltration_ach_design: 0.22  # Airtight modern museum design infiltration [1/h] (assumption for modern sealed gallery)
+  interzone_air_exchange_ach: 0.35 # Doorway/portal air mixing between adjacent zones [1/h of smaller zone volume] (assumption)
+  thermal_mass_multiplier: 1.0  # Baseline modern concrete slab + gypsum partition thermal capacitance
+  moisture_buffer_multiplier: 1.0 # Baseline interior drywall/paint/collection hygroscopic buffer
+
+provenance:
+  geometry_and_epjson_u: "src/museum/assets/5ZoneAutoDXVAV_multizone.epJSON"
+  envelope_and_infiltration_tier: "assumption (modern purpose-built museum archetype grounded in epJSON WALL-1/ROOF-1)"
+  hvac_efficiencies: "assumption (typical air-cooled chiller COP + resistance reheat/steam humidifier)"
+  interzone_doorway_airflow: "assumption (symmetric doorway air mixing across adjacent gallery-lobby boundaries)"
+  thermal_and_moisture_capacitance: "assumption (representative concrete slab + gypsum interior + passive moisture buffer)"
+
+hvac:
+  cop_cooling: 3.2              # Rated chiller + pump seasonal effective COP [W_th / W_e] (assumption)
+  eta_heating: 0.95             # Electric / condensing boiler thermal efficiency for sensible heating (assumption)
+  eta_reheat: 1.00              # Electric resistance / hydronic reheat coil delivery efficiency (assumption)
+  eta_humidification: 0.95      # Isothermal steam humidifier delivery efficiency (assumption)
+  fan_w_per_w_sensible: 0.04    # Auxiliary distribution fan + pump electricity fraction of active thermal/coil load (assumption)
+  coil_approach_dt_c: 2.0       # Cooling coil apparatus dew point depression below target dew point [K] (assumption)
+  q_heat_max_w_per_m2: 120.0    # Sizing cap per zone floor area [W/m2]
+  q_cool_max_w_per_m2: 140.0    # Sizing cap per zone floor area [W/m2]
+  m_hum_max_kg_s_per_m2: 1.5e-5 # ~54 g/(h*m2) max humidification capacity (assumption)
+  m_dehum_max_kg_s_per_m2: 2.0e-5 # ~72 g/(h*m2) max dehumidification capacity (assumption)
+  smooth_beta_t: 8.0            # Softplus sharpness for temperature deadband [1/K]
+  smooth_beta_w: 8000.0         # Softplus sharpness for humidity ratio deadband [kg_da/kg_v]
+  electricity_primary_factor: 2.55 # Primary energy factor PE/E_elec [-] (assumption; documented in MODEL.md)
+  electricity_co2_kg_per_kwh: 0.45 # Grid emission factor [kgCO2 / kWh_e] (assumption; paired with S4.3 hourly sensitivity)
+
+zones:
+  - name: SPACE1-1
+    label: South_Gallery
+    floor_area_m2: 99.16
+    volume_m3: 239.25
+    ext_wall_opaque_m2: 51.39
+    window_area_m2: 21.81
+    roof_area_m2: 99.16
+    solar_weight: 1.15          # South-facing higher winter/equinox solar factor (assumption)
+    design_people: 11           # From epJSON People
+    design_lights_w: 1584.0     # From epJSON Lights
+    design_equip_w: 1056.0      # From epJSON ElectricEquipment
+    h_am_w_k: 950.0             # Convective air-to-thermal-mass coupling [W/K] (~3.8 W/(m2*K) * 250 m2 interior area, assumption)
+    c_mass_j_k: 1.85e7          # Interior slab + wall half-thickness effective capacitance [J/K] (assumption)
+    m_buffer_kg: 120.0          # Effective active hygroscopic air-equivalent mass [kg_da] (assumption)
+    tau_buffer_h: 8.0           # Characteristic moisture buffer exchange time constant [h] (assumption)
+
+  - name: SPACE2-1
+    label: West_Gallery
+    floor_area_m2: 42.73
+    volume_m3: 103.31
+    ext_wall_opaque_m2: 27.36
+    window_area_m2: 9.12
+    roof_area_m2: 42.73
+    solar_weight: 1.00
+    design_people: 5            # From epJSON People
+    design_lights_w: 684.0      # From epJSON Lights
+    design_equip_w: 456.0       # From epJSON ElectricEquipment
+    h_am_w_k: 450.0
+    c_mass_j_k: 8.20e6
+    m_buffer_kg: 52.0
+    tau_buffer_h: 8.0
+
+  - name: SPACE3-1
+    label: North_Gallery
+    floor_area_m2: 96.48
+    volume_m3: 239.25
+    ext_wall_opaque_m2: 52.35
+    window_area_m2: 20.85
+    roof_area_m2: 96.48
+    solar_weight: 0.45          # North-facing diffuse-only solar factor (assumption)
+    design_people: 11           # From epJSON People
+    design_lights_w: 1584.0     # From epJSON Lights
+    design_equip_w: 1056.0      # From epJSON ElectricEquipment
+    h_am_w_k: 950.0
+    c_mass_j_k: 1.82e7
+    m_buffer_kg: 118.0
+    tau_buffer_h: 8.0
+
+  - name: SPACE4-1
+    label: East_Gallery
+    floor_area_m2: 42.73
+    volume_m3: 103.31
+    ext_wall_opaque_m2: 27.36
+    window_area_m2: 9.12
+    roof_area_m2: 42.73
+    solar_weight: 1.00
+    design_people: 5            # From epJSON People
+    design_lights_w: 684.0      # From epJSON Lights
+    design_equip_w: 456.0       # From epJSON ElectricEquipment
+    h_am_w_k: 450.0
+    c_mass_j_k: 8.20e6
+    m_buffer_kg: 52.0
+    tau_buffer_h: 8.0
+
+  - name: SPACE5-1
+    label: Core_Lobby
+    floor_area_m2: 182.49
+    volume_m3: 447.68
+    ext_wall_opaque_m2: 0.0
+    window_area_m2: 0.0
+    roof_area_m2: 182.49
+    solar_weight: 0.0
+    design_people: 20           # From epJSON People
+    design_lights_w: 2964.0     # From epJSON Lights
+    design_equip_w: 1976.0      # From epJSON ElectricEquipment
+    h_am_w_k: 1650.0
+    c_mass_j_k: 3.30e7
+    m_buffer_kg: 220.0
+    tau_buffer_h: 8.0
+
+interzone_partitions:
+  # Exact interior partition surface areas [m2] extracted from 5ZoneAutoDXVAV_multizone.epJSON
+  - zones: [SPACE1-1, SPACE2-1]
+    area_m2: 12.56
+  - zones: [SPACE1-1, SPACE4-1]
+    area_m2: 12.56
+  - zones: [SPACE2-1, SPACE3-1]
+    area_m2: 12.38
+  - zones: [SPACE3-1, SPACE4-1]
+    area_m2: 12.38
+  - zones: [SPACE1-1, SPACE5-1]
+    area_m2: 55.44
+  - zones: [SPACE2-1, SPACE5-1]
+    area_m2: 18.96
+  - zones: [SPACE3-1, SPACE5-1]
+    area_m2: 55.44
+  - zones: [SPACE4-1, SPACE5-1]
+    area_m2: 18.96

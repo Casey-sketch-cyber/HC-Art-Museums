@@ -51,6 +51,14 @@ antigravity 按下面的顺序做：
 
 ## 工作记录
 
+### 2026-11-18 · antigravity · `antigravity/S1.1-rom-model`（S1.1 完成待审查）
+- **完成**：按 `PLAN_ISCIENCE.md` 第 5.1 节与 S1.1 六项审查要点完成 A 层可微 5 区 RC-湿空气建筑模型及文档测试：
+  - 新增 [src/museum_v2/psychro.py](../src/museum_v2/psychro.py)：实现基于 Alduchov-Eskridge (1996) Magnus 公式与 ASHRAE *HOF* Ch. 1 的双后端（NumPy / PyTorch `autograd`）湿空气热力学函数，5–35 °C、10–90% RH 内相对 ASHRAE Hyland-Wexler 基准偏差 `< 0.25%`（`p_ws = 0.236%`, `W = 0.243%`, `h = 0.157%`）。
+  - 新增 [src/museum_v2/rom.py](../src/museum_v2/rom.py) 与更新 [src/museum_v2/__init__.py](../src/museum_v2/__init__.py)：实现与 Sinergym `5ZoneAutoDXVAV_multizone.epJSON` 同拓扑的 5 区模型，每区含空气温度 $T_a$、蓄热节点温度 $T_m$、含湿量 $W_a$ 与湿缓冲状态 $W_b$（相对湿度由 $(T_a, W_a)$ 实时计算），含物理区际隔墙导热 $G_{\text{inter}}$ 与门洞对称混风 $\dot{m}_{\text{inter}}$，支持显热供热/供冷、加湿、机器露点冷凝除湿及再热能耗分解，并折算电耗、一次能源与 $\text{CO}_2$ 排放；采用 Schur 消元后向欧拉 + TorchScript C++ 循环核实现高速可微积分。
+  - 新增三档建筑配置 [configs/building_historic.yaml](../configs/building_historic.yaml)、[configs/building_retrofitted.yaml](../configs/building_retrofitted.yaml)、[configs/building_modern.yaml](../configs/building_modern.yaml) 及完整建模与参数出处文档 [docs/MODEL.md](../docs/MODEL.md)（严格区分 `epJSON` 提取值与工程/建筑原型"假设值"）。
+  - 新增 [tests/test_rom.py](../tests/test_rom.py)：覆盖湿空气基准、绝热封闭总焓与总水汽守恒（相对误差 `< 1e-12`）、无空调室外收敛、区际扰动耦合、冷干/湿热/阴冷除湿再热分项工况、未 Schur 消元 $10 \times 10$ 逐步全矩阵朴素参照循环对齐（`< 1e-10`）、PyTorch 中心有限差分梯度校验（4 控制量均 `< 1e-3`）以及单核 CPU 全年 `8760 h × 5` 区测速（实测 `forward = 3.333 s < 5.0 s`，`backward = 8.660 s`）。
+- **验证**：在计算主机（Intel Xeon Gold 6226R WSL2）沙盒全量运行 `tests/`：`.venv` 下 `58 passed, 3 skipped`（Torch 项跳过）；单核 PyTorch 环境下 **`61 passed in 72.12s`（0 skipped）**。远端测试完已清理沙盒目录，未改 `src/museum/` 与 `paper/`。
+
 ### 2026-11-18 · claude · main（复审与合并）
 - **完成**：复审并合并 PR #11（S2.4）。两项必改、三项建议全部改好；初值敏感性检查撤回了两条由初始瞬态造成的"超屈服"结论（D3 夏季回廊、D4 `234132342d58` 木板画）。`pytest tests` 55 项通过；敏感性表与 JSON 逐项一致；D1 摘要引语与出版方页面一致。合并前在分支上解决了 `docs/PROGRESS.md` 的机械冲突。S2.4 状态改为"完成"。
 - **注意**：D1 全文观点在 S5.1 复核后才能写进正文。
