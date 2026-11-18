@@ -109,6 +109,7 @@
 | 73 | `ryhlsvendsen2012storage` | S2.1 公开数据集 D2 报告与数据记录 | `10.5281/zenodo.8403982` | Zenodo API + 随附 122 页报告 PDF 原文核对 | 2026-11-16 | **新增已核实**（Ryhl-Svendsen, Jensen, Bøhm, Klenz Larsen, National Museum of Denmark, 2012） |
 | 74 | `geasalim2024cabildo` | S2.1 公开数据集 D3 数据记录 | `10.5281/zenodo.13685667` | Zenodo API 直接解析 | 2026-11-16 | **新增已核实**（Gea Salim, C. M., Zenodo, 2024） |
 | 75 | `boterovalencia2022dataset` | S2.1 公开数据集 D4 配套数据论文 | `10.3390/data7060081` | CrossRef API 直接解析 | 2026-11-16 | **新增已核实**（Botero-Valencia, Castano-Londono, Marquez-Viloria, *Data* 7(6):81, 2022） |
+| 76 | `rode2005moisture` | S1.1b 湿缓冲 MBV 定义、分级与材料实测均值 | `https://backend.orbit.dtu.dk/ws/portalfiles/portal/2415500/byg-r126.pdf` | 下载并逐页核对 DTU Orbit 原文 PDF 封面、编著页、Table 3-5 与 Table 4-1 | 2026-11-18 | **新增已核实**（Rode, C. (Ed.) 等 11 位作者, *Moisture Buffering of Building Materials*, 封面印为 `BYG·DTU R-126`, 2005, ISBN `87-7877-195-1`, ISSN `1601-2917`; DTU Orbit 元数据作 `R-127`） |
 
 ---
 
