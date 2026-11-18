@@ -159,3 +159,39 @@ $$M_{b,i} = \frac{A_{\text{eff},i}\cdot \mathrm{MBV}_{\text{eff}}\cdot 10^{-3}}{
   2. **平滑参数 `smooth_beta_t = 8.0, smooth_beta_w = 8000` 相对近硬切换 `(200, 2e5)` 偏差**：
      - 全年总电耗平滑正偏置极小：`modern +0.70%`、`retrofitted +0.61%`、`historic +0.30%`；
      - 显热、冷盘管与再热分项平滑偏置在 `+0.13%` 至 `+1.94%` 之间；加湿分项在极小量级的 `modern`（年加湿仅 `591 kWh`）因绝对偏置分母小呈 `+8.93%`（仅 `+52.9 kWh`，占总电耗 `< 0.16%`），在 `retrofitted` / `historic` 分别为 `+2.04%` / `+0.77%`。遵循 `PLAN_ISCIENCE.md` 第 5.7 节约定：梯度训练可用平滑版，论文报告能耗与节能幅度统一采用近硬切换参数（`with_smooth_betas(..., 200.0, 200000.0)`）复算或双列报告。
+
+---
+
+## 6. B 层 EnergyPlus 博物馆模型（Task S1.2）
+
+> 实现文件：[src/museum_v2/eplus/build_model.py](../src/museum_v2/eplus/build_model.py)、[src/museum_v2/eplus/runner.py](../src/museum_v2/eplus/runner.py)、[scripts/v2/run_eplus_f0.py](../scripts/v2/run_eplus_f0.py)；测试：[tests/test_eplus_model.py](../tests/test_eplus_model.py)。
+
+### 6.1 从 VAV 集中风系统重构为独立分区理想负荷
+
+1. **移除集中风环路与青铜区不可行源**：清除原始 `5ZoneAutoDXVAV_multizone.epJSON` 中的中央 `AirLoopHVAC`、主盘管、中央 `Humidifier:Steam:Electric` 及集中 VAV 末端，消除以往只能靠核心区单一加湿器带动全楼导致的湿度控制耦合冲突。
+2. **五区独立 `ZoneHVAC:IdealLoadsAirSystem`**：`SPACE1-1` 至 `SPACE5-1` 每区各自配置独立的 `ZoneHVAC:IdealLoadsAirSystem`、`ThermostatSetpoint:DualSetpoint`（分别设加热/供冷设定点）与 `ZoneControl:Humidistat`（分别设 `humidifying_relative_humidity_setpoint_schedule_name` 与 `dehumidifying_relative_humidity_setpoint_schedule_name`）。送风限制放宽至 `T_sup ∈ [13, 50] °C`、`W_sup ∈ [0.002, 0.025] kg/kg`，`heating_limit = NoLimit`、`cooling_limit = NoLimit`，以输出物理基准所需的逐时真实显热供热、显热供冷、加湿潜热与除湿潜热负荷（`eplusout.csv` 小时输出）。
+
+### 6.2 湿缓冲对齐（`ZoneCapacitanceMultiplier:ResearchSpecial`）与三档围护、时间表
+
+为与 A 层 S1.1b 按 NORDTEST MBV（Rode 等 2005 *BYG·DTU R-126*）标定的总房湿容 $M_{a,i} + M_{b,i}$ 保持严格一致，B 层为五个展厅注入 `ZoneCapacitanceMultiplier:ResearchSpecial`，按 $\text{humidity\_capacity\_multiplier}_i = 1 + M_{b,i}/(\rho_0 V_i)$ 取值（感热仍由 EnergyPlus `ConductionTransferFunction` 墙体楼板解析传递，`temperature_capacity_multiplier = 1.0`）：
+
+| 分区 | 空气干质量 $M_a$ [kg] | `modern` 湿容倍数 | `retrofitted` 湿容倍数 | `historic` 湿容倍数 |
+|---|---|---|---|---|
+| `SPACE1-1` | 288.08 | `5.3290` | `7.5801` | `11.0430` |
+| `SPACE2-1` | 124.40 | `5.9446` | `8.5162` | `12.4713` |
+| `SPACE3-1` | 288.08 | `5.2901` | `7.5208` | `10.9528` |
+| `SPACE4-1` | 124.40 | `5.9446` | `8.5162` | `12.4713` |
+| `SPACE5-1` | 539.05 | `4.3164` | `6.0409` | `8.6939` |
+
+其余 B 层构件参数与 A 层三档 `configs/building_{tier}.yaml` 单一数据源同步：
+- **围护构造与门窗**：`modern` 沿用 `epJSON` 原 `WALL-1` / `ROOF-1` / `INT-WALL-1`；`retrofitted` 采用 240 mm 砖砌体 + 矿棉内保温（按目标 `U_wall=0.85, U_roof=0.55` 反算热阻）；`historic` 采用 400 mm 实心砖石墙与木屋架（匹配 `U_wall=1.80, U_roof=1.35`）。全三档窗及玻璃门均采用 `WindowMaterial:SimpleGlazingSystem` 对齐三档 `(U_window, SHGC)`。
+- **区际门洞混风**：按 `interzone_air_exchange_ach`（`0.35 / 0.45 / 0.60 1/h`）对 8 组相邻边界加入 16 条双向对称 `ZoneMixing` 气流。
+- **渗透与博物馆开放时间表**：修正原模板 `INFIL-SCH` 4–10 月渗透率为零的失真，全年按 `constant_term_coefficient = 1.0` 执行 `infiltration_ach_design`；将原"工作日办公、周末闭馆"时间表替换为**博物馆开放制度**（周二至周日 `09:00–17:00` 开放、周一闭馆仅留 `5%` 值守人员与 `25%` 基础照明），并通过 `demand_controlled_ventilation_type = OccupancySchedule` 使新风随客流实时联动。
+
+### 6.3 B 层 F0（`21 °C / 50% RH`）全年仿真验证（EnergyPlus 23.2.0-7636e6b3e9）
+
+使用 `USA_NY_New.York-J.F.Kennedy.Intl.AP.744860_TMY3.epw` 对三档建筑执行全年 8760 h 运行（详见 `results_summary/S1.2/summary.md`）：
+- 三档 **0 Severe / 0 Fatal 报错**，全部 5 个展厅 `21±1 °C` 达标率均 **`100.00%`**，`50±5 %RH` 达标率均 **`99.26%–100.00%`**（显著高于 `>= 95%` 验收标准）。
+- 三档全年分项总热负荷符合物理直觉与 A 层一致排序（`modern < retrofitted < historic`）：显热供热分别为 `26,742 / 35,466 / 72,771 kWh`，加湿潜热分别为 `13,892 / 18,613 / 29,780 kWh`，除湿潜热分别为 `14,382 / 17,808 / 26,030 kWh`。
+- 独立分区控制验证：在 `SPACE1-1` 放宽至 `[18–25 °C, 35–65% RH]`、`SPACE2-1/5-1` 收紧至 `[21.5–22 °C, 48–52% RH]` 时，`SPACE1-1` 与 `SPACE2-1` 的逐时温湿度标准差比大于 `1.5×`，确认各区双设定点恒温与双限湿度控制互不干扰。
+

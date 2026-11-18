@@ -45,12 +45,19 @@ antigravity 按下面的顺序做：
 
 - 旧稿的核心结论不成立，详见 `docs/REVIEW_2026-11-12.md`。
 - 拿不到合作博物馆的实测数据。替代办法见 `docs/DATASETS.md`；S2.1 已完成 D1–D5 下载与核对（D1–D4 可用/部分可用，D5 因无明确许可证标为不用；原始文件存于主机 `data/raw/D1..D5`）。
-- EnergyPlus 相关任务（S1.2、S1.3、S4.5）需要 `setup.sh` 装好的环境（当前 WSL 主机未装 `/usr/local/EnergyPlus*`）。
+- EnergyPlus 23.2 环境说明：因计算主机 `sudo` 需交互密码，无法直接写入 `/usr/local/EnergyPlus-23-2-0`；已从官方 GitHub Release 下载 `EnergyPlus-23.2.0-7636e6b3e9-Linux-Ubuntu22.04-x86_64.tar.gz` 解压至用户可写目录 `/mnt/e/lzt/tools/EnergyPlus-23-2-0`（软链指向 `EnergyPlus-23.2.0-7636e6b3e9-Linux-Ubuntu22.04-x86_64`），并从 Ubuntu 官方 `apt-get download libgomp1` 解压缺失的 `libgomp.so.1` 至 `/mnt/e/lzt/tools/libs/usr/lib/x86_64-linux-gnu`。实测 `energyplus --version` 返回 **`EnergyPlus, Version 23.2.0-7636e6b3e9`**，全年仿真运行正常。
 - `PLAN_ISCIENCE.md` 里损伤函数的"预期形式"和 `TASKS.md` 里文献的卷期页码来自记忆和检索摘要，实现和引用前必须对照原文（S0.3 已建立逐条核实的 `paper/iscience/references.bib`）。
 
 ---
 
 ## 工作记录
+
+### 2026-11-18 · antigravity · `antigravity/S1.2-eplus-model`（S1.2 完成待审查，依赖 PR #13 S1.1b）
+- **环境配置**：在计算主机完成官方 **EnergyPlus 23.2.0-7636e6b3e9** 安装与运行时依赖（`/mnt/e/lzt/tools/EnergyPlus-23-2-0` + `/mnt/e/lzt/tools/libs/usr/lib/x86_64-linux-gnu` `libgomp.so.1`），全程免 `sudo`。
+- **模型与运行代码**：
+  - 新增 [src/museum_v2/eplus/__init__.py](../src/museum_v2/eplus/__init__.py)、[src/museum_v2/eplus/build_model.py](../src/museum_v2/eplus/build_model.py) 与 [src/museum_v2/eplus/runner.py](../src/museum_v2/eplus/runner.py)：以 `5ZoneAutoDXVAV_multizone.epJSON` 为几何基准，拆除集中 VAV 与中央加湿器，改为 5 区独立 `ZoneHVAC:IdealLoadsAirSystem` + `ThermostatSetpoint:DualSetpoint` + 分离加/除湿设定点的 `ZoneControl:Humidistat` + 按客流联动的 `DesignSpecification:OutdoorAir`（`OccupancySchedule` DCV）；按 `configs/building_{historic,retrofitted,modern}.yaml` 同步三档墙/屋/窗传热、全年渗透率 `INFIL-SCH=1.0`、双向门洞 `ZoneMixing` 及博物馆开放时间表（周二至周日 `09:00–17:00`，周一闭馆）。
+  - **湿缓冲一致对齐**：根据 PR #12 对 S1.2 的连带要求，利用 `ZoneCapacitanceMultiplier:ResearchSpecial` 按 `1 + M_b / (rho * V)` 同步 S1.1b 标定的总房湿容（`modern 4.32–5.94x`、`retrofitted 6.04–8.52x`、`historic 8.69–12.47x`），详见 [docs/MODEL.md](../docs/MODEL.md) 第 6 节。
+- **验证与产出**：新增 [scripts/v2/run_eplus_f0.py](../scripts/v2/run_eplus_f0.py) 与 [tests/test_eplus_model.py](../tests/test_eplus_model.py)，运行真实 EnergyPlus 23.2.0 全年（`USA_NY_New.York-J.F.Kennedy.Intl.AP.744860_TMY3.epw`）F0 检验并汇总至 [results_summary/S1.2/summary.md](../results_summary/S1.2/summary.md) 与 [results_summary/S1.2/f0_verification.json](../results_summary/S1.2/f0_verification.json)：三档 **0 Severe / 0 Fatal**，`21±1 °C` 达标率均 **`100.00%`**，`50±5 %RH` 达标率 **`99.26%–100.00%`**，且核实独立分区温湿度可控与分项显热/加湿/除湿能耗输出；计算主机沙盒全仓库测试：`.venv`（无 `PYTHONPATH`）下 **`63 passed, 3 skipped in 25.84s`**，单核 CPU PyTorch 环境下 **`66 passed in 66.08s`（0 skipped）**。
 
 ### 2026-11-18 · antigravity · `antigravity/S1.1b-moisture-buffer`（S1.1b 完成待审查）
 - **完成**：按 `docs/code_reviews/PR12_S1.1.md` 与 `docs/TASKS.md` S1.1b 要求完成湿缓冲容量重新标定与平滑近似偏差定量登记：

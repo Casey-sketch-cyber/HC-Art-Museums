@@ -1,0 +1,248 @@
+{
+  "task": "S1.2",
+  "commit": "unknown",
+  "weather_epw": "USA_NY_New.York-J.F.Kennedy.Intl.AP.744860_TMY3.epw",
+  "setpoint": {
+    "t_heat_sp_c": 21.0,
+    "t_cool_sp_c": 21.0,
+    "rh_hum_sp_percent": 50.0,
+    "rh_dehum_sp_percent": 50.0
+  },
+  "all_zones_pass_95pct": true,
+  "tiers": {
+    "modern": {
+      "n_hours": 8760,
+      "warnings_count": 9,
+      "severe_errors": [],
+      "totals_kwh": {
+        "sens_heat": 26741.63,
+        "sens_cool": 39496.26,
+        "hum_latent": 13892.2,
+        "dehum_latent": 14382.16
+      },
+      "zones": {
+        "SPACE1-1": {
+          "humidity_capacity_multiplier": 5.329,
+          "temp_within_21pm1_pct": 100.0,
+          "rh_within_50pm5_pct": 99.9543,
+          "t_min_c": 21.0,
+          "t_max_c": 21.0,
+          "rh_min_pct": 43.993,
+          "rh_max_pct": 50.004,
+          "sens_heat_kwh": 6856.38,
+          "sens_cool_kwh": 9494.83,
+          "hum_latent_kwh": 2995.52,
+          "dehum_latent_kwh": 3057.17
+        },
+        "SPACE2-1": {
+          "humidity_capacity_multiplier": 5.9447,
+          "temp_within_21pm1_pct": 100.0,
+          "rh_within_50pm5_pct": 100.0,
+          "t_min_c": 20.999,
+          "t_max_c": 21.0,
+          "rh_min_pct": 45.899,
+          "rh_max_pct": 50.008,
+          "sens_heat_kwh": 2868.86,
+          "sens_cool_kwh": 5800.24,
+          "hum_latent_kwh": 1293.04,
+          "dehum_latent_kwh": 1339.49
+        },
+        "SPACE3-1": {
+          "humidity_capacity_multiplier": 5.2901,
+          "temp_within_21pm1_pct": 100.0,
+          "rh_within_50pm5_pct": 100.0,
+          "t_min_c": 20.999,
+          "t_max_c": 21.0,
+          "rh_min_pct": 45.014,
+          "rh_max_pct": 50.004,
+          "sens_heat_kwh": 6856.6,
+          "sens_cool_kwh": 8713.41,
+          "hum_latent_kwh": 2930.96,
+          "dehum_latent_kwh": 3017.96
+        },
+        "SPACE4-1": {
+          "humidity_capacity_multiplier": 5.9447,
+          "temp_within_21pm1_pct": 100.0,
+          "rh_within_50pm5_pct": 100.0,
+          "t_min_c": 20.999,
+          "t_max_c": 21.0,
+          "rh_min_pct": 45.629,
+          "rh_max_pct": 50.006,
+          "sens_heat_kwh": 3127.79,
+          "sens_cool_kwh": 4604.14,
+          "hum_latent_kwh": 1294.19,
+          "dehum_latent_kwh": 1339.46
+        },
+        "SPACE5-1": {
+          "humidity_capacity_multiplier": 4.3164,
+          "temp_within_21pm1_pct": 100.0,
+          "rh_within_50pm5_pct": 99.258,
+          "t_min_c": 20.998,
+          "t_max_c": 21.0,
+          "rh_min_pct": 44.137,
+          "rh_max_pct": 50.003,
+          "sens_heat_kwh": 7032.0,
+          "sens_cool_kwh": 10883.64,
+          "hum_latent_kwh": 5378.49,
+          "dehum_latent_kwh": 5628.08
+        }
+      }
+    },
+    "retrofitted": {
+      "n_hours": 8760,
+      "warnings_count": 9,
+      "severe_errors": [],
+      "totals_kwh": {
+        "sens_heat": 35465.5,
+        "sens_cool": 35254.5,
+        "hum_latent": 18612.72,
+        "dehum_latent": 17807.77
+      },
+      "zones": {
+        "SPACE1-1": {
+          "humidity_capacity_multiplier": 7.5801,
+          "temp_within_21pm1_pct": 100.0,
+          "rh_within_50pm5_pct": 100.0,
+          "t_min_c": 20.999,
+          "t_max_c": 21.0,
+          "rh_min_pct": 46.252,
+          "rh_max_pct": 50.002,
+          "sens_heat_kwh": 8451.54,
+          "sens_cool_kwh": 8152.1,
+          "hum_latent_kwh": 3959.99,
+          "dehum_latent_kwh": 3779.71
+        },
+        "SPACE2-1": {
+          "humidity_capacity_multiplier": 8.5163,
+          "temp_within_21pm1_pct": 100.0,
+          "rh_within_50pm5_pct": 100.0,
+          "t_min_c": 20.999,
+          "t_max_c": 21.0,
+          "rh_min_pct": 46.084,
+          "rh_max_pct": 50.002,
+          "sens_heat_kwh": 3555.78,
+          "sens_cool_kwh": 4859.88,
+          "hum_latent_kwh": 1710.81,
+          "dehum_latent_kwh": 1650.85
+        },
+        "SPACE3-1": {
+          "humidity_capacity_multiplier": 7.5207,
+          "temp_within_21pm1_pct": 100.0,
+          "rh_within_50pm5_pct": 100.0,
+          "t_min_c": 21.0,
+          "t_max_c": 21.0,
+          "rh_min_pct": 47.635,
+          "rh_max_pct": 50.002,
+          "sens_heat_kwh": 9140.32,
+          "sens_cool_kwh": 7947.65,
+          "hum_latent_kwh": 3925.99,
+          "dehum_latent_kwh": 3739.7
+        },
+        "SPACE4-1": {
+          "humidity_capacity_multiplier": 8.5163,
+          "temp_within_21pm1_pct": 100.0,
+          "rh_within_50pm5_pct": 100.0,
+          "t_min_c": 20.999,
+          "t_max_c": 21.0,
+          "rh_min_pct": 47.963,
+          "rh_max_pct": 50.003,
+          "sens_heat_kwh": 4106.59,
+          "sens_cool_kwh": 4079.71,
+          "hum_latent_kwh": 1721.59,
+          "dehum_latent_kwh": 1651.18
+        },
+        "SPACE5-1": {
+          "humidity_capacity_multiplier": 6.0409,
+          "temp_within_21pm1_pct": 100.0,
+          "rh_within_50pm5_pct": 100.0,
+          "t_min_c": 20.999,
+          "t_max_c": 21.0,
+          "rh_min_pct": 46.71,
+          "rh_max_pct": 50.002,
+          "sens_heat_kwh": 10211.28,
+          "sens_cool_kwh": 10215.16,
+          "hum_latent_kwh": 7294.34,
+          "dehum_latent_kwh": 6986.32
+        }
+      }
+    },
+    "historic": {
+      "n_hours": 8760,
+      "warnings_count": 9,
+      "severe_errors": [],
+      "totals_kwh": {
+        "sens_heat": 72771.0,
+        "sens_cool": 40723.07,
+        "hum_latent": 29780.37,
+        "dehum_latent": 26029.62
+      },
+      "zones": {
+        "SPACE1-1": {
+          "humidity_capacity_multiplier": 11.043,
+          "temp_within_21pm1_pct": 100.0,
+          "rh_within_50pm5_pct": 100.0,
+          "t_min_c": 21.0,
+          "t_max_c": 21.0,
+          "rh_min_pct": 47.458,
+          "rh_max_pct": 50.003,
+          "sens_heat_kwh": 17769.91,
+          "sens_cool_kwh": 9359.87,
+          "hum_latent_kwh": 6313.38,
+          "dehum_latent_kwh": 5517.12
+        },
+        "SPACE2-1": {
+          "humidity_capacity_multiplier": 12.4715,
+          "temp_within_21pm1_pct": 100.0,
+          "rh_within_50pm5_pct": 100.0,
+          "t_min_c": 21.0,
+          "t_max_c": 21.0,
+          "rh_min_pct": 47.603,
+          "rh_max_pct": 50.003,
+          "sens_heat_kwh": 7525.18,
+          "sens_cool_kwh": 5717.89,
+          "hum_latent_kwh": 2727.08,
+          "dehum_latent_kwh": 2400.9
+        },
+        "SPACE3-1": {
+          "humidity_capacity_multiplier": 10.9528,
+          "temp_within_21pm1_pct": 100.0,
+          "rh_within_50pm5_pct": 100.0,
+          "t_min_c": 21.0,
+          "t_max_c": 21.0,
+          "rh_min_pct": 48.132,
+          "rh_max_pct": 50.003,
+          "sens_heat_kwh": 19203.83,
+          "sens_cool_kwh": 9347.23,
+          "hum_latent_kwh": 6285.55,
+          "dehum_latent_kwh": 5478.07
+        },
+        "SPACE4-1": {
+          "humidity_capacity_multiplier": 12.4715,
+          "temp_within_21pm1_pct": 100.0,
+          "rh_within_50pm5_pct": 100.0,
+          "t_min_c": 21.0,
+          "t_max_c": 21.0,
+          "rh_min_pct": 48.142,
+          "rh_max_pct": 50.003,
+          "sens_heat_kwh": 8639.75,
+          "sens_cool_kwh": 4909.62,
+          "hum_latent_kwh": 2739.33,
+          "dehum_latent_kwh": 2401.24
+        },
+        "SPACE5-1": {
+          "humidity_capacity_multiplier": 8.6939,
+          "temp_within_21pm1_pct": 100.0,
+          "rh_within_50pm5_pct": 100.0,
+          "t_min_c": 20.999,
+          "t_max_c": 21.0,
+          "rh_min_pct": 47.173,
+          "rh_max_pct": 50.002,
+          "sens_heat_kwh": 19632.33,
+          "sens_cool_kwh": 11388.46,
+          "hum_latent_kwh": 11715.02,
+          "dehum_latent_kwh": 10232.29
+        }
+      }
+    }
+  }
+}
