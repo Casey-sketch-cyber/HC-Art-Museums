@@ -1,0 +1,153 @@
+# Uninsulated historic masonry museum building configuration (5-zone ROM, Layer A).
+# Shares the exact 5-zone floorplan and partition adjacency of 5ZoneAutoDXVAV_multizone.epJSON,
+# isolating envelope leakage, heavyweight masonry thermal mass, single glazing, and strong
+# hygroscopic plaster/timber moisture buffering.
+
+schema_version: 1
+tier: historic
+description: >
+  未保温历史砖石木构博物馆（5 区同平面几何）：
+  无保温实心砖石外墙与老旧屋面、单层玻璃窗、高渗透换气次数（约 1.0 ACH），
+  但具备高建筑蓄热体量（3.0 倍现代基线）与较高内饰灰泥/木作吸湿缓冲层。
+
+constants:
+  rho_air_kg_m3: 1.2041
+  cp_air_j_kg_k: 1006.0
+  solar_to_air_fraction: 0.20   # Greater share absorbed into heavyweight masonry surfaces
+  internal_rad_fraction: 0.55
+  person_sensible_w: 75.0
+  person_latent_kg_s: 1.85e-5
+
+envelope:
+  u_wall_w_m2_k: 1.80           # Assumption: uninsulated ~0.45 m solid brick/stone historic masonry wall
+  u_roof_w_m2_k: 1.35           # Assumption: uninsulated timber-framed historic roof / attic slab
+  u_window_w_m2_k: 5.20         # Assumption: single-glazed historic wooden sash windows
+  u_ground_w_m2_k: 0.75         # Assumption: uninsulated historic stone/timber floor over soil
+  u_interzone_wall_w_m2_k: 1.30 # Assumption: thick solid masonry internal load-bearing partitions
+  window_shgc: 0.76             # Assumption: clear single glazing high solar transmittance
+  infiltration_ach_design: 1.00 # Assumption: leaky historic fenestration & envelope (~1.0 ACH)
+  interzone_air_exchange_ach: 0.60 # Assumption: high open-doorway air mixing between historic rooms
+  thermal_mass_multiplier: 3.0  # Assumption: heavyweight historic masonry (~3x modern concrete/drywall effective mass)
+  moisture_buffer_multiplier: 2.2 # Assumption: thick lime plaster, unpainted wood paneling, textiles
+
+provenance:
+  geometry_and_partitions: "src/museum/assets/5ZoneAutoDXVAV_multizone.epJSON (common 5-zone topology)"
+  envelope_and_infiltration_tier: "assumption (uninsulated heavyweight historic masonry museum archetype)"
+  hvac_efficiencies: "assumption (older/constrained heritage HVAC plant added to historic shell)"
+  interzone_doorway_airflow: "assumption (symmetric open-portal air mixing)"
+  thermal_and_moisture_capacitance: "assumption (3.0x thermal mass and 2.2x moisture buffer over modern baseline)"
+
+hvac:
+  cop_cooling: 2.6              # Older or space-constrained DX/chiller retrofit COP (assumption)
+  eta_heating: 0.85             # Existing boiler / hydronic heating delivery efficiency (assumption)
+  eta_reheat: 0.95              # Reheat coil efficiency (assumption)
+  eta_humidification: 0.90      # Steam humidifier efficiency (assumption)
+  fan_w_per_w_sensible: 0.06    # Higher pressure drop / auxiliary fan fraction in retrofit ductwork (assumption)
+  coil_approach_dt_c: 2.0
+  q_heat_max_w_per_m2: 180.0    # Higher sizing allowance for uninsulated envelope heat loss
+  q_cool_max_w_per_m2: 180.0
+  m_hum_max_kg_s_per_m2: 2.5e-5
+  m_dehum_max_kg_s_per_m2: 3.2e-5
+  smooth_beta_t: 8.0
+  smooth_beta_w: 8000.0
+  electricity_primary_factor: 2.55
+  electricity_co2_kg_per_kwh: 0.45
+
+zones:
+  - name: SPACE1-1
+    label: South_Gallery
+    floor_area_m2: 99.16
+    volume_m3: 239.25
+    ext_wall_opaque_m2: 51.39
+    window_area_m2: 21.81
+    roof_area_m2: 99.16
+    solar_weight: 1.15
+    design_people: 11
+    design_lights_w: 1584.0
+    design_equip_w: 1056.0
+    h_am_w_k: 1200.0
+    c_mass_j_k: 5.55e7          # 3.0 * 1.85e7
+    m_buffer_kg: 264.0          # 2.2 * 120.0
+    tau_buffer_h: 12.0
+
+  - name: SPACE2-1
+    label: West_Gallery
+    floor_area_m2: 42.73
+    volume_m3: 103.31
+    ext_wall_opaque_m2: 27.36
+    window_area_m2: 9.12
+    roof_area_m2: 42.73
+    solar_weight: 1.00
+    design_people: 5
+    design_lights_w: 684.0
+    design_equip_w: 456.0
+    h_am_w_k: 560.0
+    c_mass_j_k: 2.46e7
+    m_buffer_kg: 114.4
+    tau_buffer_h: 12.0
+
+  - name: SPACE3-1
+    label: North_Gallery
+    floor_area_m2: 96.48
+    volume_m3: 239.25
+    ext_wall_opaque_m2: 52.35
+    window_area_m2: 20.85
+    roof_area_m2: 96.48
+    solar_weight: 0.45
+    design_people: 11
+    design_lights_w: 1584.0
+    design_equip_w: 1056.0
+    h_am_w_k: 1200.0
+    c_mass_j_k: 5.46e7
+    m_buffer_kg: 259.6
+    tau_buffer_h: 12.0
+
+  - name: SPACE4-1
+    label: East_Gallery
+    floor_area_m2: 42.73
+    volume_m3: 103.31
+    ext_wall_opaque_m2: 27.36
+    window_area_m2: 9.12
+    roof_area_m2: 42.73
+    solar_weight: 1.00
+    design_people: 5
+    design_lights_w: 684.0
+    design_equip_w: 456.0
+    h_am_w_k: 560.0
+    c_mass_j_k: 2.46e7
+    m_buffer_kg: 114.4
+    tau_buffer_h: 12.0
+
+  - name: SPACE5-1
+    label: Core_Lobby
+    floor_area_m2: 182.49
+    volume_m3: 447.68
+    ext_wall_opaque_m2: 0.0
+    window_area_m2: 0.0
+    roof_area_m2: 182.49
+    solar_weight: 0.0
+    design_people: 20
+    design_lights_w: 2964.0
+    design_equip_w: 1976.0
+    h_am_w_k: 2100.0
+    c_mass_j_k: 9.90e7
+    m_buffer_kg: 484.0
+    tau_buffer_h: 12.0
+
+interzone_partitions:
+  - zones: [SPACE1-1, SPACE2-1]
+    area_m2: 12.56
+  - zones: [SPACE1-1, SPACE4-1]
+    area_m2: 12.56
+  - zones: [SPACE2-1, SPACE3-1]
+    area_m2: 12.38
+  - zones: [SPACE3-1, SPACE4-1]
+    area_m2: 12.38
+  - zones: [SPACE1-1, SPACE5-1]
+    area_m2: 55.44
+  - zones: [SPACE2-1, SPACE5-1]
+    area_m2: 18.96
+  - zones: [SPACE3-1, SPACE5-1]
+    area_m2: 55.44
+  - zones: [SPACE4-1, SPACE5-1]
+    area_m2: 18.96
