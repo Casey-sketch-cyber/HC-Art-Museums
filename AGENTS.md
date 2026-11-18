@@ -60,7 +60,7 @@
 
 ## 工作规则（所有 AI 必须遵守）
 
-1. **开始前**：先读 `docs/PROGRESS.md`、`docs/ARCHITECTURE.md`、`docs/DECISIONS.md`、`docs/PLAN_ISCIENCE.md`，再到 `docs/TASKS.md` 按其中的流程认领任务。
+1. **开始前**：先读 `docs/PROGRESS.md`（**开头的"当前分工"表写明了每个 AI 下一步做什么**）、`docs/ARCHITECTURE.md`、`docs/DECISIONS.md`、`docs/PLAN_ISCIENCE.md`，再到 `docs/TASKS.md` 按其中的流程认领任务。审查意见在 `docs/code_reviews/`，不需要能访问 GitHub。
 2. **分支与合并**：每个任务新建分支 `<工具名>/<任务简述>`（例如 `codex/add-login`），做完后推送并创建 PR；不能创建 PR 时只推送分支也可以。**不要自己合并到 `main`，也不用等用户**：定时运行的 Claude 审查任务会审查，通过就合并，没通过就在 PR 里留言并在 `docs/PROGRESS.md` 的待办里登记原因。开工前先看有没有自己之前被退回的 PR，先把它改完。新任务依赖还没合并的分支时，从那个分支开新分支，并在 PR 说明里写明依赖。不要强制推送，不要改写已推送的历史。
 3. **范围**：只改与当前任务相关的文件，不要顺手做大规模重构或格式化。
 4. **依赖**：不要随意新增依赖；确实需要时，在提交说明里写明理由。
