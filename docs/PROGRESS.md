@@ -4,7 +4,7 @@
 
 ## 当前状态
 
-项目正在按 `docs/PLAN_ISCIENCE.md` 重做，目标期刊 iScience。旧稿已归档，不再修改。S0.1、S0.2、S0.3、S2.1、S2.2、S2.3、S5.2 已完成；其余任务见 `docs/TASKS.md`。
+项目正在按 `docs/PLAN_ISCIENCE.md` 重做，目标期刊 iScience。旧稿已归档，不再修改。S0.1、S0.2、S0.3、S2.1、S2.2、S2.3、S5.2 已完成；S2.4 已提交待审查；其余任务见 `docs/TASKS.md`。
 
 旧代码和旧稿在 `/mnt/e/lzt/guangxi`。mock 与多区域实验的输出在 `results/` 和 `logs/`，不上传。
 
@@ -35,8 +35,8 @@ antigravity 按下面的顺序做：
 
 ## 待办
 
-- [ ] **antigravity 的 PR #11（S2.4）被退回**：① `summary.md` 第 4 节对原论文观点的转述要注明出处，带引号的要是原话，找不到出处的删掉或改成"本文数据显示"；② 头条机械峰值（D4 木雕 1.136、D1 地下室家具 1.067、D3 回廊 1.07）要做初始值敏感性检查。详见 `docs/code_reviews/PR11_S2.4.md`。修改已提交（`52e3bf0`），等待复审。
-- [x] **antigravity 的 PR #10（S2.3）被退回**：已按审查意见修复，改为未归一化 LogSumExp 上界（$\gamma = 1000$，作用于无量纲应变比）并补齐整年波形与单次尖峰回归测试，同时将 `docs/DAMAGE_MODELS.md` 的本机链接替换为相对路径，现重新提交待审查。
+- [x] **antigravity 的 PR #11（S2.4）被退回**：已按审查意见完成全部修改：① `results_summary/S2.4/summary.md` 第 4 节逐条补齐已核对的原文出处（D1 OpenAlex 摘要英文原话、D2 终期报告 PDF 具体章节与表号、D3 Zenodo 元数据原话、D4 OpenAlex 摘要及 Table 2/ONAC 校准），未出自原论文的发现一律改写为"本文实测计算/数据分析显示"；② `scripts/v2/eval_real_traces.py` 增加段均值初始化 `segment_mean` 与 `first_sample` 并列输出，新增第 3.2 节双初值对比表并撤回受初值瞬态主导的两项短期超限宣称（D3 回廊 `S12` 与 D4 `234132342d58` 木板画），同时补充单元测试及建议修改项 3–5（`std_ratio` 与 D2 Dry 整数量化解释、D4 小米传感器限定、D3/D4 家具参考均值局限）。现重新提交待审查。
+- [x] **antigravity 的 PR #10（S2.3）被退回**：已按审查意见修复，改为未归一化 LogSumExp 上界（$\gamma = 1000$，作用于无量纲应变比）并补齐整年波形与单次尖峰回归测试，同时将 `docs/DAMAGE_MODELS.md` 的本机链接替换为相对路径，现已复审合并。
 - [x] 实验室计算主机硬件配置已实测登记：WSL2 Ubuntu 22.04，CPU 为 Intel Xeon Gold 6226R @ 2.90 GHz（32 物理核 / 64 线程），内存 235 GiB，GPU 为 2× NVIDIA RTX A6000（每卡 48 GiB；运行前须先检查其他课题进程占用，避免抢占在跑显存）
 - [ ] 关口 G1（任务 S3.4）出结果后停下，等用户确认走路线 A 还是 B
 - [ ] 用户如能提供之前两次投稿的审稿意见，放到 `docs/reviews/`，并对照调整优先级
@@ -58,10 +58,29 @@ antigravity 按下面的顺序做：
 ### 2026-11-18 · claude · main（流程修正）
 - **问题**：Codex 反馈看不到审查和任务安排。原因：审查意见只写在 PR 评论里，有的 AI 读不到；待办只写了"antigravity 的 PR 被退回"，没有给 Codex 指派任务。
 - **修正**：新增 `docs/code_reviews/`，保存每个 PR 的审查记录（已补 PR #10、#11）；`docs/PROGRESS.md` 开头新增"当前分工"表，指派 Codex 做 S1.1，并写明 S1.1 的审查要点；`AGENTS.md` 和 `docs/TASKS.md` 第 1、7 步改为指向这两处。
+### 2026-11-17 · antigravity · antigravity/S2.4-real-traces-eval（PR #11 退回修改）
+- **完成**：按 Claude PR #11 审查意见完成两项必改与三项建议修改，并重跑主机实测批量评估与全量回归测试：
+  1. **文献出处逐条核实与英文原话规范（`summary.md` §4）**：D1 仅引用 OpenAlex 公开摘要英文原话（`brimblecombe2025vienna`, Abstract）；D2 直接对照数据仓库内 `Report_low-energy-museum-storage-buildings.pdf`（Ch. 1 p. 2、Sec. 2.1 pp. 4–6、Table 2.1 p. 8、Sec. 3.5.1 pp. 13–14、Sec. 5.5.2 p. 37、Sec. 6.5.1 p. 47）给出章节表号与原文；D3 仅转述 Zenodo `13685667` 记录描述的监测设计；D4 引自 OpenAlex 摘要、`description_table.png`（Table 2）及 `DATASETS.md` 第 2 节校准说明。所有本文计算发现均改写为"本文实测计算/数据分析显示"。
+  2. **初值敏感性检查（`scripts/v2/eval_real_traces.py` & `summary.md` §3.2）**：并列输出 `first_sample` 与 `segment_mean`（每段按各自 RH 均值平衡初始化）机械指标及 `max_init_offset_rh`。结果证明 D4 连续 9 探头 `wooden_sculpture`（`1.136 / 1.142`）、D1 地下室 `floor_K` `wooden_furniture`（`1.067 / 1.031`）及 `NH061`/`NH043`/`NH191` 越界在两种初值下稳健成立；而 D3 夏季回廊 `S12`（`1.066 -> 0.835`）与 D4 `234132342d58` `panel_painting`（`1.170 -> 0.866`）系首样本瞬态所致，已从主结论撤回。
+  3. **三项建议改进**：新增 `std_ratio`（说明 D2 Dry 因整数 `%RH` 量化令 `P95–P05` 穿透比出现 `1.033`，而 `std_ratio = 0.931–0.967 < 1.0`）；D4 明确消费级小米传感器标称 `±3% RH` / ONAC 校准前提与“数据显示”措辞；第 6 节写明 D3/D4 家具 `acclimatized` 均值非年度长期适应均值。
+  4. **单元测试补充**：`tests/test_eval_real_traces.py` 新增 `test_initial_value_sensitivity_constant_zero_and_step_difference`（恒定 RH 两种初值均严格为 0；段首阶跃检验二者显著差异）。
+- **验证**：
+  1. 计算主机 `.venv/bin/python -u scripts/v2/eval_real_traces.py`：重跑全部 249 条实测轨迹，更新 `real_traces_summary.json` 与 2 张 SVG 图。
+  2. 计算主机 `.venv/bin/pytest tests/ -v`：**55 passed, 2 skipped**（用时 13.78 s；跳过 2 项为无 PyTorch 环境的 `torch` 专测，S2.4 全部 4 项单元测试通过）。
 
 ### 2026-11-17 · claude · main（审查）
 - **退回** PR #11（S2.4）。清洗逻辑、分段、汇总方式和量级都核对通过；退回原因是原论文观点的转述缺出处，以及头条机械峰值未做初始值敏感性检查。
 - **顺手改正**：`docs/DATASETS.md` 中 D1 论文作者列表（S2.1 遗留错误），按出版方页面改为 Brimblecombe、Bibl、Fischer、Pristacz、Querner，与 `references.bib` 一致。
+
+### 2026-11-17 · antigravity · antigravity/S2.4-real-traces-eval
+- **完成**：完成 S2.4 公开实测数据集上的文物响应与四类损伤评估，新增 `scripts/v2/eval_real_traces.py`、`tests/test_eval_real_traces.py` 及 `results_summary/S2.4/`（`summary.md`、`real_traces_summary.json`、`rh_fluctuation_attenuation.svg`、`damage_risk_summary.svg`），未新增外部依赖。
+  - **数据覆盖与排除（共 249 条清洗后轨迹）**：D1（维也纳 NHM 197 台去重拼接记录仪，`NH082` 去重、`NH083` 拼接，0.25 h 网格）、D2（丹麦 11 个低能耗库区：8 个 Basic + 3 个 Dry）、D3（萨尔塔 Cabildo 冬 14.8 d + 夏 19.9 d 共 29 通道；自动跳过 `VERANO` 汇总行，未外推 ≥30 d 季节滑动指标）、D4（仅取 `Museum_Nov2019/` 31 d，以 9 台连续探头为主统计、12 台全集作对照；严格排除 `LSCR_Oct2019/` 与 D5）。
+  - **空气 vs 文物 RH 波动**：在全部数据集上，`wooden_sculpture` 表层（3.33 h）透过 `50.8%–81.4%` 的 24 h P95 空气波动，`panel_painting` 表层（34.4 h）降至 `13.3%–36.5%`，其整体（208 h）与 `wooden_furniture`（320 h）降至 `3.7%–10.7%` 与 `2.9%–7.9%`；但全年季节漂移在 D1/D2 中仍以 `84.6%–100%+` 穿透至木板画整体与家具。
+  - **与原论文结论对照**：详见 `results_summary/S2.4/summary.md` 第 4 节（写明每项数据集的一致与不一致/补充发现，例如 D1 冬季干燥与地下室局部高湿点 `NH043`/`NH061` 萌发与破屈服、D2 Basic vs Dry 清晰验证及 Vejle 单点遥测错码审计、D3 展柜削弱波动但冬季高湿蕴霉险、D4 "受控库房" 实测高达 `17.8%` 日波动导致裸木雕塑中位应变比达 `1.136` 而家具仅有 `0.239`）。
+- **验证**：
+  1. 在计算主机 `.venv` 对真实 `data/raw/` 运行 `scripts/v2/eval_real_traces.py` 产出全部 249 条序列 JSON 与 2 张合法 XML 的 SVG 图。
+  2. 运行 `.venv/bin/pytest tests/ -v`：**54 passed, 2 skipped**（用时 12.38 s；跳过的 2 项为无 PyTorch 环境的 `torch` 专测，新增 `tests/test_eval_real_traces.py` 3 项单元测试全通过）。
+- **未完成**：S1.1、S1.2、S5.1 及后续任务。
 
 ### 2026-11-17 · claude · main（复审与合并）
 - **完成**：复审并合并 PR #10（S2.3）。上次退回的两项已改好。用同一组输入复测：平滑最大应变比现在都是上界，比精确值高出不到 0.003（上次只有精确值的 5%–65%）。`pytest tests` 51 项通过；新梯度路径与有限差分一致（误差 < 5e-10）。S2.3 状态改为"完成"。
