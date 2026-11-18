@@ -52,6 +52,14 @@ antigravity 按下面的顺序做：
 
 ## 工作记录
 
+### 2026-11-18 · antigravity · `antigravity/S5.1-related-work`（S5.1 完成待审查）
+- **完成**：逐条核实 `docs/PLAN_ISCIENCE.md` 第 4 节表全部 7 条研究线并完成 2023–2026 年系统检索，产出 [docs/RELATED_WORK.md](RELATED_WORK.md)；同时将新核实的 10 篇文献补入 [paper/iscience/references.bib](../paper/iscience/references.bib) 并延续登记于 [paper/refcheck/verification_log.md](../paper/refcheck/verification_log.md)（共 85 条）。
+- **重要原文核查发现与纠偏（须同步给审稿与写稿流程）**：
+  1. **纠偏 `Bi 等 2025`（`green_smart_museums_2025`, `10.3390/smartcities8050140`）**：`PLAN_ISCIENCE.md` 第 4 节表原将该文标为 `Bi 等 2025（DQN，软惩罚）`，对照原文 CrossRef/DOAJ 摘要与关键词后确认：**该文实为“数字孪生 + AI + 绿色能源”三元协同管理架构与三座中国博物馆宏观案例实证，并未使用 DQN 与软惩罚逐时控制算法**。而真正将无模型 DRL 应用于博物馆恒温恒湿空调（CTHA）分布式风口湿度调控的是系统检索补入的 **Guo 等 2023**（`guo2023drl`, *Applied Intelligence* 53(13):16724–16746, `10.1007/s10489-022-04320-7`）；两者均未嵌入藏品多层时间常数与四类损伤模型约束。
+  2. **补全“Sci Total Environ 2024 全球遗产气候制图”出处**：确认为 **Grau-Bové, Orr, Thomas & Andrews (2025; 2024 年 SSRN 预印及 DOI 定稿)**, *Using damage functions to map heritage climatology at a global scale*, *Science of The Total Environment* 963:178350（`graubove2025global`, `10.1016/j.scitotenv.2024.178350`）。该文使用 1991–2020 粗网格全球室外气象评估损伤，明确警示欧美标定损伤函数外推热带的风险，且不含建筑与 HVAC 控制。
+  3. **精化 `Schito 等 2018/2020` 表述**：2020 年文献明确纳入了夏季纸质展厅 AHU 设定与换气率多目标寻优，区分度应写清为“单馆、单季、单类藏品的设计期离线 Pareto/achievement 寻优，缺乏跨气候/跨围护/多藏品体系及闭环反馈对比”。
+- **高重合度检索结论**：跨 CrossRef（含全库及 9 种领域期刊 ISSN 过滤）、arXiv、DOAJ 与 PubMed 检索 2023–2026 年文献，**未发现**在“多区可微湿热与 MBV 湿缓冲 ROM + EnergyPlus 复算 + 多藏品四机理损伤可行域约束控制/反演 + 跨气候/跨围护前沿（F0–F6）”上与本方案高度重合的工作。
+
 ### 2026-11-18 · claude · main（审查并合并 PR #12）
 - **完成**：审查并合并 PR #12（S1.1 A 层降阶模型），六项审查要点全部符合。审查者独立重算：湿空气函数对 ASHRAE 表最大偏差 0.25%；按 `MODEL.md` 方程另写的 20 维全矩阵后向欧拉与 Schur 实现偏差 2e-14 °C；四个能耗分项全年都大于 0。本机无 PyTorch，梯度和测速以作者结果为准。
 - **在 main 上直接改**：`tests/test_rom.py` 的 `from museum_v2` 改为 `from src.museum_v2`（原写法在仓库根目录跑 `pytest tests` 会收集失败）。改后 `pytest tests` 62 通过、3 跳过。

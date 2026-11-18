@@ -2,7 +2,7 @@
 
 - **核验日期**：2026-11-16
 - **输入旧库**：`paper/references.bib`（共 49 条，归档文件未改动）
-- **输出新库**：`paper/iscience/references.bib`（共 75 条：含旧库经核实与修正后的 49 条 + 按 `docs/TASKS.md` S0.3 与 `docs/PLAN_ISCIENCE.md` 补入并核实的 26 条）
+- **输出新库**：`paper/iscience/references.bib`（初始 S0.3 共 75 条：含旧库经核实与修正后的 49 条 + 补入 26 条；后续 S5.1 新增并核实 10 条至 85 条，表 2 已逐条延续登记）
 - **核验方式**：
   1. 含 DOI 的期刊/会议论文、专著与学位论文：直接请求 CrossRef REST API（`https://api.crossref.org/works/<DOI>`）、DataCite API（`https://api.datacite.org/dois/<DOI>`）或 `doi.org` Handle API（`https://doi.org/api/handles/<DOI>`），逐字比对全部作者姓名、标题、刊名、卷、期、页码/文章号与正式出版年份。
   2. 无 DOI 的机器学习会议/期刊论文：直接抓取官方出版页（PMLR `proceedings.mlr.press`、JMLR `jmlr.org`、NeurIPS `proceedings.neurips.cc`、arXiv API `export.arxiv.org`）的 `citation_*` 元数据核对。
@@ -109,6 +109,16 @@
 | 73 | `ryhlsvendsen2012storage` | S2.1 公开数据集 D2 报告与数据记录 | `10.5281/zenodo.8403982` | Zenodo API + 随附 122 页报告 PDF 原文核对 | 2026-11-16 | **新增已核实**（Ryhl-Svendsen, Jensen, Bøhm, Klenz Larsen, National Museum of Denmark, 2012） |
 | 74 | `geasalim2024cabildo` | S2.1 公开数据集 D3 数据记录 | `10.5281/zenodo.13685667` | Zenodo API 直接解析 | 2026-11-16 | **新增已核实**（Gea Salim, C. M., Zenodo, 2024） |
 | 75 | `boterovalencia2022dataset` | S2.1 公开数据集 D4 配套数据论文 | `10.3390/data7060081` | CrossRef API 直接解析 | 2026-11-16 | **新增已核实**（Botero-Valencia, Castano-Londono, Marquez-Viloria, *Data* 7(6):81, 2022） |
+| 76 | `graubove2025global` | S5.1 补全 `PLAN_ISCIENCE` 第 4 节全球制图工作 | `10.1016/j.scitotenv.2024.178350` | CrossRef API + PubMed PMID 39818148 摘要核对 | 2026-11-18 | **新增已核实**（Grau-Bové, Orr, Thomas, Andrews, *Sci. Total Environ.* 963:178350, 2025；2024 年 SSRN 预印及 DOI 注册） |
+| 77 | `guo2023drl` | S5.1 系统检索：博物馆 CTHA 分布式湿控 DRL | `10.1007/s10489-022-04320-7` | CrossRef API 直接解析 + 摘要核对 | 2026-11-18 | **新增已核实**（Guo, Luo, Zhang, Zhang, Lai, Sun, *Applied Intelligence* 53(13):16724–16746, 2023） |
+| 78 | `califano2024fatigue` | S5.1 系统检索：2024 木质遗产累积疲劳损伤 | `10.1016/j.culher.2024.03.017` | CrossRef API 直接解析 | 2026-11-18 | **新增已核实**（Califano 等 8 人, *J. Cultural Heritage* 67:313–325, 2024） |
+| 79 | `verticchio2024bem` | S5.1 系统检索：历史建筑全建筑动态仿真综述 | `10.1016/j.buildenv.2024.111621` | CrossRef API 直接解析 + 摘要核对 | 2026-11-18 | **新增已核实**（Verticchio, Martinelli, Gigliarelli, Calcerano, *Build. Environ.* 258:111621, 2024） |
+| 80 | `tringa2025heritage` | S5.1 系统检索：2025 欧洲遗产气候风险指数预测 | `10.3390/heritage8050175` | CrossRef API + DOAJ 元数据与摘要核对 | 2026-11-18 | **新增已核实**（Tringa, Georgoulias, Akritidis, Feidas, Zanis, *Heritage* 8(5):175, 2025） |
+| 81 | `tringa2026forecast` | S5.1 系统检索：2026 德尔菲博物馆微气候 ML 预测 | `10.3390/app16126092` | CrossRef API + 原文摘要核对 | 2026-11-18 | **新增已核实**（Tringa & Kavroudakis, *Applied Sciences* 16(12):6092, 2026） |
+| 82 | `hayles2023adaptation` | S5.1 系统检索：2023 博物馆气候适应与越界规划 | `10.3390/heritage6120390` | CrossRef API + 原文摘要核对 | 2026-11-18 | **新增已核实**（Hayles, Huddleston, Chinowsky, Helman, *Heritage* 6(12):7446–7465, 2023） |
+| 83 | `schito2025church` | S5.1 跟踪：Schito 等 2025 历史教堂游客微气候波动 | `10.1016/j.culher.2025.04.017` | CrossRef API + 原文摘要核对 | 2026-11-18 | **新增已核实**（Schito, Aparicio-Fernández, Vivancos, *J. Cultural Heritage* 73:549–560, 2025） |
+| 84 | `pretzel2023toolbox` | S5.1 系统检索：2023 博物馆室内气候评估工具箱 | `10.3390/heritage6040198` | CrossRef API + 原文摘要核对 | 2026-11-18 | **新增已核实**（Pretzel, B., *Heritage* 6(4):3745–3756, 2023） |
+| 85 | `carotenuto2024specola` | S5.1 系统检索：2024 巴勒莫博物馆 EN 15757 风险评估 | `10.3390/heritage7120331` | CrossRef API + 原文摘要核对 | 2026-11-18 | **新增已核实**（Carotenuto 等 8 人, *Heritage* 7(12):7165–7187, 2024） |
 
 ---
 
