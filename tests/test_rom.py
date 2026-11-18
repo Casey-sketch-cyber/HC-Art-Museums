@@ -8,7 +8,7 @@ import time
 import numpy as np
 import pytest
 
-from museum_v2 import (
+from src.museum_v2 import (
     MuseumROM,
     dew_point_from_w,
     humidity_ratio_from_temp_rh,
