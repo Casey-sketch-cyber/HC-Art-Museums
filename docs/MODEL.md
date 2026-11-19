@@ -85,6 +85,7 @@ M_{b,i}\frac{\mathrm{d}W_{b,i}}{\mathrm{d}t} &= K_{ab,i}(W_{a,i} - W_{b,i})
    $$\dot{Q}_{\text{sens,heat},i} \ge 0, \qquad \dot{Q}_{\text{sens,cool},i} \ge 0$$
 2. **蒸汽/绝热等效加湿热负荷**：在控制后室温 $T_a^{k+1}$ 下计算 $W_{\text{hum,sp},i} = W(T_a^{k+1}, \mathrm{RH}_{\text{hum,sp},i})$，由 $\dot{m}_{\text{hum},i} \ge 0$ 得
    $$\dot{Q}_{\text{hum},i} = \dot{m}_{\text{hum},i}\,h_{fg}(T_a^{k+1})\;[\text{W}]$$
+   （采用等温蒸汽加湿近似，仅计入汽化潜热；若改用绝热湿膜/高压微雾加湿，水分蒸发还会带来额外的室内显热冷却与后加热负荷；另各区均受限于设计能力上限 `m_hum_max`，如 `historic` 高渗透高湿需求极端冬季工况会出现能力饱和而非控制失效。）
 3. **冷却盘管露点冷凝除湿 + 再热**（对应 `PLAN_ISCIENCE.md` 第 5.1 节）：
    - 由目标除湿含湿量 $W_{\text{dehum,sp},i} = W(T_a^{k+1}, \mathrm{RH}_{\text{dehum,sp},i})$ 计算表冷器机器露点：
      $$T_{\text{coil},i} = T_{\text{dp}}(W_{\text{dehum,sp},i}) - \Delta T_{\text{approach}}, \qquad W_{\text{coil},i} = W_{\text{sat}}(T_{\text{coil},i})$$
@@ -113,10 +114,28 @@ M_{b,i}\frac{\mathrm{d}W_{b,i}}{\mathrm{d}t} &= K_{ab,i}(W_{a,i} - W_{b,i})
 | 设计渗透率 $\mathrm{ACH}_{\text{inf}}$ $[1/\text{h}]$ | 1.00 | 0.45 | 0.22 | 历史漏风砖石、气密改造与现代密封展厅分级**假设值**（将在 S4.4 敏感性分析覆盖） |
 | 区际门洞混风 $\mathrm{ACH}_{\text{inter}}$ $[1/\text{h}]$ | 0.60 | 0.45 | 0.35 | 相邻展厅与大厅门洞空气交流对称混合**假设值** |
 | 蓄热倍数 / $C_{m,i}$ $[10^7\text{ J/K}]$ | 3.0x (`2.46–9.90`) | 1.8x (`1.48–5.94`) | 1.0x (`0.82–3.30`) | 重质砖石（3 倍）、轻质现代石膏+混凝土板楼面（1 倍）蓄热体量分级**假设值** |
-| 吸湿缓冲容量倍数 / $\tau_b$ | 2.2x / 12 h | 1.5x / 10 h | 1.0x / 8 h | 未涂覆石灰灰泥/木作历史内饰（强缓冲）到现代涂层石膏墙（弱缓冲）分级**假设值** |
+| 吸湿缓冲容量 $M_{b,i}$ $[\text{kg}_{da}]$ / $\tau_b$ | **2.32x** (`1427.0–4147.4 kg`, `MBV=1.16`) / 8.0 h | **1.52x** (`935.0–2717.3 kg`, `MBV=0.76`) / 8.0 h | **1.00x** (`615.1–1787.7 kg`, `MBV=0.50`) / 8.0 h | 按 NORDTEST 定义与材料实测均值推导（Rode 等 2005 *BYG·DTU R-126* Sec. 3.3 p. 28、Table 3-5 p. 31、Table 4-1 p. 38）；原 S1.1 弱缓冲取值保留作 S4.4 下限敏感性参数 |
 | 人员感热 / 散湿 | 75 W / $1.85\times 10^{-5}$ kg/s | 同左 | 同左 | 站立轻量参观人员代谢热湿释放（ASHRAE HOF Ch. 18 量级），配比按**假设值**固定三档一致 |
 | 冷机 $\mathrm{COP}_{\text{cool}}$ / $\eta_{\text{heat}}$ / $\eta_{\text{reheat}}$ / $\eta_{\text{hum}}$ | 2.6 / 0.85 / 0.95 / 0.90 | 2.9 / 0.90 / 0.98 / 0.92 | 3.2 / 0.95 / 1.00 / 0.95 | 对应年代改造受限/中等/现代风冷热泵及盘管效率分级**假设值**（可在 S1.3 校核并在 S4.4 做敏感性分析） |
 | 一次能源系数 / 电网碳排因子 | 2.55 / 0.45 kgCO2/kWh | 同左 | 同左 | 默认基准折算因子**假设值**（S4.3 将额外替换真实分时电价与逐时碳强度曲线） |
+
+### 4.1 吸湿缓冲容量（NORDTEST MBV）推导与三档取值（Task S1.1b）
+
+对照 Rode (Ed.) 等（2005）*Moisture Buffering of Building Materials*（封面报告号 `BYG·DTU R-126`，DTU Orbit 元数据亦记作 `R-127`，ISBN `87-7877-195-1`），标准 NORDTEST `8/16 h` 循环下的实用吸湿缓冲值 $\mathrm{MBV}_{\text{practical}}\;[\text{g}/(\text{m}^2\cdot\%\mathrm{RH})]$（Sec. 3.3, pp. 28–29）定义为单位面积材料在 8 h 吸湿段内的质量变化与相对湿度阶跃幅之比。将房间内参与吸放湿的表面积记为非透明外墙 + 相邻内隔墙 + 顶棚面积（不含玻璃窗门与密封石材/环氧地面）：
+
+$$A_{\text{eff},i} = A_{\text{wall,opaque},i} + \sum_{j \sim i} A_{\text{inter},ij} + A_{\text{roof},i}$$
+
+五区几何 $A_{\text{eff},i}$ 依次为 `SPACE1-1 = 231.11 m²`、`SPACE2-1 = 113.99 m²`、`SPACE3-1 = 229.03 m²`、`SPACE4-1 = 113.99 m²`、`SPACE5-1 = 331.29 m²`。在 $20\,^\circ\text{C}$、$50\%\mathrm{RH}$ 基准条件下，由含湿量偏导 $\kappa_W = \partial W/\partial(\mathrm{RH}_{\%})|_{20^\circ\text{C},50\%} = 1.4659\times 10^{-4}\;\text{kg}_v/(\text{kg}_{da}\cdot\%\mathrm{RH})$，令一阶缓冲节点在特征时间常数 $\tau_b = 8.0\text{ h}$（匹配 NORDTEST 8 h 吸湿半周期）内的响应蓄水量等于 $A_{\text{eff},i}\cdot\mathrm{MBV}_{\text{eff}}\cdot\Delta\mathrm{RH}$：
+
+$$M_{b,i} = \frac{A_{\text{eff},i}\cdot \mathrm{MBV}_{\text{eff}}\cdot 10^{-3}}{(1 - e^{-8/\tau_b})\cdot \kappa_W}\;[\text{kg}_{da}]$$
+
+三档有效 $\mathrm{MBV}_{\text{eff}}$ 对应 Rode 等（2005）Table 3-5（p. 31 多实验室 Round Robin 实测均值）与 Table 4-1（p. 38 分级）：
+
+| 档位 | 代表性内饰材料构成 | 对应原文 Table 3-5 实测均值 $[\text{g}/(\text{m}^2\cdot\%\mathrm{RH})]$ | 选用 $\mathrm{MBV}_{\text{eff}}$ / Table 4-1 分级 | 5 区标定 $M_{b,i}\;[\text{kg}_{da}]$ (`SPACE1..5`) | 保留 S1.1 弱缓冲下限 (`weak_m_buffer_kg`) |
+|---|---|---|---|---|---|
+| `modern` | 涂漆石膏板隔墙、混凝土楼板与少量木/漆饰面（组合折减） | 石膏板 `0.64` (`0.57–0.69`)、清漆层压木 `0.46`、混凝土 `0.38` | `0.50`（Limited/Moderate 边界） | `1247.1, 615.1, 1235.9, 615.1, 1787.7` | `120.0, 52.0, 118.0, 52.0, 220.0` |
+| `retrofitted` | 透气矿物砂浆/灰泥粉刷砌体与局部护墙板 | 带灰泥轻骨料砌块 `0.76`（DTU `0.74` / NBI `0.81` / LTH `0.72`）、桦木板 `0.85` | `0.76`（Moderate） | `1895.6, 935.0, 1878.5, 935.0, 2717.3` | `180.0, 78.0, 177.0, 78.0, 330.0` |
+| `historic` | 未涂覆透气石灰灰泥、原生木饰面与织物陈设 | 未涂覆云杉板 `1.16`（DTU `1.22` / NBI `1.12` / VTT `1.15`） | `1.16`（Good） | `2893.2, 1427.0, 2867.2, 1427.0, 4147.4` | `264.0, 114.4, 259.6, 114.4, 484.0` |
 
 ---
 
@@ -124,11 +143,19 @@ M_{b,i}\frac{\mathrm{d}W_{b,i}}{\mathrm{d}t} &= K_{ab,i}(W_{a,i} - W_{b,i})
 
 > 验证脚本：`tests/test_rom.py`（于计算主机 WSL2 Intel Xeon Gold 6226R 沙盒实测通过）。
 
-- **全量测试结果**：
-  - `.venv`（纯 NumPy + PyYAML）：`58 passed, 3 skipped`（跳过项均为 PyTorch 专属测试，`test_rom.py` 中 7 项非 PyTorch 测试全过，耗时 `2.28 s`）。
-  - 单核 PyTorch 环境（`OMP_NUM_THREADS=1 MKL_NUM_THREADS=1`，Python 3.12.3 + PyTorch）：全仓 `tests/` **`61 passed in 72.12s`（0 skipped）**，`test_rom.py` 全部 8 项通过。
+- **全量测试结果（S1.1b 标定后）**：
+  - `.venv`（纯 NumPy + PyYAML）：`pytest tests/ -v` -> **`60 passed, 3 skipped`**（跳过项均为 PyTorch 专属测试，`tests/test_rom.py` 非 PyTorch 9 项全过）。
+  - 单核 PyTorch 环境（`OMP_NUM_THREADS=1 MKL_NUM_THREADS=1`，Python 3.12.3 + PyTorch）：全仓 `tests/` **`63 passed in 60.77s`（0 skipped）**，`tests/test_rom.py` 全部 10 项通过。
 - **湿空气精度**：在 `5–35 °C、10–90% RH` 网格相对 ASHRAE *HOF* Ch. 1 Hyland-Wexler 公式最大相对误差 `p_ws = 0.236%`、`W = 0.243%`、`h = 0.157%`（均 `< 0.5%`，远优于 `< 1%` 指标）；`0 °C` 以上露点与热力学可逆反演偏差 `< 1e-5 Pa`。
 - **封闭守恒与无空调收敛**：绝热封闭下 120 h 内总热焓与总水汽质量相对漂移 `< 1e-12`，且各区向均值平衡；恒定 `(28 °C, 65% RH)` 无内扰无空调 600 h 收敛误差 `< 0.1 °C` 与 `< 0.6 %RH`。
 - **区际耦合与分项负荷**：验证 `SPACE5-1` 显热/潜热扰动显著传导至四个外区；验证低温干燥（`sens_heat > 0, hum > 0`）、高温高湿（`sens_cool > 0, dehum_coil > 0`）与阴冷高湿工况（`18 °C / 88% RH` 下 `dehum_coil > 10 kWh, reheat > 2 kWh`）。
 - **朴素参考循环对比**：对照不作 Schur 预消元的 $10 \times 10$ 逐步全矩阵求解参考循环（120 h 随机变渗透率工况），各区温度偏差 `< 1e-10 °C`、含湿量偏差 `< 1e-12 kg/kg`、总电耗偏差 `< 1e-10 kWh`。
 - **可微梯度与单核速度**：PyTorch `autograd` 与中心有限差分核对覆盖 `T_heat_sp`、`T_cool_sp`、`RH_hum_sp`、`RH_dehum_sp` 活跃控制坐标，相对误差均 `< 1e-3`；单核 CPU 下 `8760 h × 5` 区全年仿真实测 **`forward = 3.333 s`**（`< 5.0 s`）、完整反向传播 `backward = 8.660 s`。
+- **S1.1b 湿缓冲新旧标定与平滑近似偏差对照（合成典型年 8760 h、`20–22 °C / 45–55% RH`）**：
+  1. **无空调南展厅逐时 $|\Delta \mathrm{RH}|$（第 168–8760 小时）与全年有控电耗对比**：
+     - `modern`（`weak -> MBV=0.50`）：无空调均值 `0.984 -> 0.768 %RH`、95 分位 `3.173 -> 1.704 %RH`（**-46.3%**）；有控全年电耗 `33,912.7 -> 32,991.5 kWh`（`-2.7%`）。
+     - `retrofitted`（`weak -> MBV=0.76`）：无空调均值 `1.172 -> 0.770 %RH`、95 分位 `4.499 -> 2.034 %RH`（**-54.8%**）；有控全年电耗 `50,598.6 -> 50,268.9 kWh`。
+     - `historic`（`weak -> MBV=1.16`）：无空调均值 `1.533 -> 1.138 %RH`、95 分位 `4.098 -> 2.823 %RH`（**-31.1%**）；有控全年电耗 `143,079.0 -> 142,691.0 kWh`。
+  2. **平滑参数 `smooth_beta_t = 8.0, smooth_beta_w = 8000` 相对近硬切换 `(200, 2e5)` 偏差**：
+     - 全年总电耗平滑正偏置极小：`modern +0.70%`、`retrofitted +0.61%`、`historic +0.30%`；
+     - 显热、冷盘管与再热分项平滑偏置在 `+0.13%` 至 `+1.94%` 之间；加湿分项在极小量级的 `modern`（年加湿仅 `591 kWh`）因绝对偏置分母小呈 `+8.93%`（仅 `+52.9 kWh`，占总电耗 `< 0.16%`），在 `retrofitted` / `historic` 分别为 `+2.04%` / `+0.77%`。遵循 `PLAN_ISCIENCE.md` 第 5.7 节约定：梯度训练可用平滑版，论文报告能耗与节能幅度统一采用近硬切换参数（`with_smooth_betas(..., 200.0, 200000.0)`）复算或双列报告。

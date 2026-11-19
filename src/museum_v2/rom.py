@@ -18,7 +18,7 @@ and NumPy arrays cleanly without requiring PyTorch at import time.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 import math
@@ -112,6 +112,7 @@ class EnvelopeConfig:
     interzone_air_exchange_ach: float
     thermal_mass_multiplier: float = 1.0
     moisture_buffer_multiplier: float = 1.0
+    effective_mbv_g_m2_rh: float = 0.50
 
 
 @dataclass(frozen=True)
@@ -149,6 +150,8 @@ class ZoneConfig:
     c_mass_j_k: float
     m_buffer_kg: float
     tau_buffer_h: float
+    hygroscopic_area_m2: float = 0.0
+    weak_m_buffer_kg: float | None = None
 
 
 @dataclass(frozen=True)
@@ -225,29 +228,51 @@ def load_building_tier(tier: str, config_dir: str | Path | None = None) -> Museu
 
 def make_adiabatic_config(base: MuseumROMConfig) -> MuseumROMConfig:
     """Return a copy of ``base`` with zero exterior conduction, zero ground heat loss, and zero infiltration."""
-    env = EnvelopeConfig(
+    env = replace(
+        base.envelope,
         u_wall_w_m2_k=0.0,
         u_roof_w_m2_k=0.0,
         u_window_w_m2_k=0.0,
         u_ground_w_m2_k=0.0,
-        u_interzone_wall_w_m2_k=base.envelope.u_interzone_wall_w_m2_k,
         window_shgc=0.0,
         infiltration_ach_design=0.0,
-        interzone_air_exchange_ach=base.envelope.interzone_air_exchange_ach,
-        thermal_mass_multiplier=base.envelope.thermal_mass_multiplier,
-        moisture_buffer_multiplier=base.envelope.moisture_buffer_multiplier,
     )
-    return MuseumROMConfig(
-        schema_version=base.schema_version,
-        tier=f"{base.tier}_adiabatic",
-        description=base.description,
-        constants=base.constants,
-        envelope=env,
-        hvac=base.hvac,
-        zones=base.zones,
-        interzone_partitions=base.interzone_partitions,
-        provenance=dict(base.provenance),
+    return replace(base, tier=f"{base.tier}_adiabatic", envelope=env)
+
+
+def scale_moisture_buffer(base: MuseumROMConfig, factor: float) -> MuseumROMConfig:
+    """Return a copy of ``base`` with every zone's ``m_buffer_kg`` scaled by ``factor`` (> 0)."""
+    if factor <= 0.0:
+        raise ValueError(f"factor must be > 0, got {factor}.")
+    zones = tuple(replace(z, m_buffer_kg=z.m_buffer_kg * factor) for z in base.zones)
+    env = replace(
+        base.envelope,
+        moisture_buffer_multiplier=base.envelope.moisture_buffer_multiplier * factor,
     )
+    return replace(base, tier=f"{base.tier}_buf{factor:.2g}x", envelope=env, zones=zones)
+
+
+def make_weak_buffer_config(base: MuseumROMConfig) -> MuseumROMConfig:
+    """Restore the original S1.1 uncalibrated weak-buffer values as a sensitivity lower bound."""
+    zones = tuple(
+        replace(z, m_buffer_kg=float(z.weak_m_buffer_kg))
+        if z.weak_m_buffer_kg is not None
+        else replace(z, m_buffer_kg=z.m_buffer_kg * 0.1)
+        for z in base.zones
+    )
+    return replace(base, tier=f"{base.tier}_weak_buffer", zones=zones)
+
+
+def with_smooth_betas(
+    base: MuseumROMConfig,
+    smooth_beta_t: float,
+    smooth_beta_w: float,
+) -> MuseumROMConfig:
+    """Return a copy of ``base`` with updated softplus deadband sharpness parameters."""
+    if smooth_beta_t <= 0.0 or smooth_beta_w <= 0.0:
+        raise ValueError("smooth_beta_t and smooth_beta_w must be > 0.")
+    hv = replace(base.hvac, smooth_beta_t=float(smooth_beta_t), smooth_beta_w=float(smooth_beta_w))
+    return replace(base, hvac=hv)
 
 
 _BaseModule = torch.nn.Module if torch is not None else object
@@ -877,6 +902,9 @@ class MuseumROM(_BaseModule):  # type: ignore[misc]
             t_coil = t_dp_target - hv.coil_approach_dt_c
             w_coil = humidity_ratio_from_temp_rh(t_coil, 100.0, pressure_pa=pressure_pa)
 
+            # Process humidity drop across the cooling coil: 2e-4 kg/kg (0.2 g/kg) floor avoids 0/0
+            # singularity when w_a_free approaches w_coil while vanishing as m_dehum -> 0 and
+            # changing active-dehumidification coil airflow by < ~15% only near tiny < 1 g/kg drops.
             delta_w_coil = _softplus(w_a_free - w_coil, beta=hv.smooth_beta_w) + 2.0e-4
             m_proc = m_dehum / delta_w_coil
             delta_t_coil = _softplus(t_a_free - t_coil, beta=hv.smooth_beta_t)

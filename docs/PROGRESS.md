@@ -52,6 +52,13 @@ antigravity 按下面的顺序做：
 
 ## 工作记录
 
+### 2026-11-18 · antigravity · `antigravity/S1.1b-moisture-buffer`（S1.1b 完成待审查）
+- **完成**：按 `docs/code_reviews/PR12_S1.1.md` 与 `docs/TASKS.md` S1.1b 要求完成湿缓冲容量重新标定与平滑近似偏差定量登记：
+  - **原文核实与 Bib 登记**：从 DTU Orbit 直接下载并逐页核对 Rode (Ed.) 等（2005）*Moisture Buffering of Building Materials* PDF（封面印号 `BYG·DTU R-126`，DTU Orbit 元数据作 `R-127`，ISBN `87-7877-195-1`）11 位编著者名单、Sec. 3.3（p. 28, `8/16 h` NORDTEST 周期）、Table 3-5（p. 31 多实验室 Round Robin 实测 `MBV_practical`）与 Table 4-1（p. 38 分级），补入 [paper/iscience/references.bib](../paper/iscience/references.bib)（`rode2005moisture`）并登记于 [paper/refcheck/verification_log.md](../paper/refcheck/verification_log.md)。
+  - **物理推导与三档配置更新**：按五区暴露室内表面积 $A_{\text{eff},i}$（外非透明墙+内隔墙+顶棚：`231.11 / 113.99 / 229.03 / 113.99 / 331.29 m²`）与 $\tau_b = 8.0\text{ h}$、20 °C 湿容斜率 $\kappa_W = 1.4659\times 10^{-4}\;\text{kg}_v/(\text{kg}_{da}\cdot\%\mathrm{RH})$ 重新标定 [configs/building_modern.yaml](../configs/building_modern.yaml)（`MBV=0.50`, `M_b=615.1–1787.7 kg`）、[configs/building_retrofitted.yaml](../configs/building_retrofitted.yaml)（`MBV=0.76` 取 Table 3-5 灰泥轻骨料均值, `M_b=935.0–2717.3 kg`）与 [configs/building_historic.yaml](../configs/building_historic.yaml)（`MBV=1.16` 取 Table 3-5 未涂覆云杉板均值, `M_b=1427.0–4147.4 kg`）。
+  - **代码与敏感性工具**：在 [src/museum_v2/rom.py](../src/museum_v2/rom.py) 与 [src/museum_v2/__init__.py](../src/museum_v2/__init__.py) 保留 S1.1 原始弱缓冲取值 `weak_m_buffer_kg`（供 S4.4 下限敏感性，新增 `make_weak_buffer_config`、`scale_moisture_buffer` 与 `with_smooth_betas`），并补充 PR #12 审查建议的 `+ 2.0e-4` 防零除注释；在 [docs/MODEL.md](../docs/MODEL.md) 补全推导式、平滑偏差对照表（总电耗偏高 `+0.30%–+0.70%`）及等温蒸汽/加湿容量饱和说明；在 [tests/test_rom.py](../tests/test_rom.py) 新增 MBV 推导一致性、RH 短波抑制与近硬切换校验。
+- **验证**：在计算主机沙盒全量运行：`.venv` 下 `60 passed, 3 skipped`；单核 PyTorch 环境下 **`63 passed in 60.77s`（0 skipped）**；实测标定后无空调南展厅逐时 $|\Delta \mathrm{RH}|$ 95 分位下降 `31.1%–54.8%`。
+
 ### 2026-11-18 · claude · main（审查并合并 PR #12）
 - **完成**：审查并合并 PR #12（S1.1 A 层降阶模型），六项审查要点全部符合。审查者独立重算：湿空气函数对 ASHRAE 表最大偏差 0.25%；按 `MODEL.md` 方程另写的 20 维全矩阵后向欧拉与 Schur 实现偏差 2e-14 °C；四个能耗分项全年都大于 0。本机无 PyTorch，梯度和测速以作者结果为准。
 - **在 main 上直接改**：`tests/test_rom.py` 的 `from museum_v2` 改为 `from src.museum_v2`（原写法在仓库根目录跑 `pytest tests` 会收集失败）。改后 `pytest tests` 62 通过、3 跳过。
