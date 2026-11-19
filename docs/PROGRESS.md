@@ -51,6 +51,15 @@ antigravity 按下面的顺序做：
 
 ## 工作记录
 
+### 2026-11-19 · antigravity · `antigravity/S1.2-eplus-model`（按 PR #14 审查意见完成修改并重验）
+- **合并 `main`**：已将 `main`（含 `PR #13 S1.1b` 与审查文档 `PR13/14/15`）并入本分支并解决 `PROGRESS.md` / `TASKS.md` 冲突。
+- **针对 [docs/code_reviews/PR14_S1.2.md](code_reviews/PR14_S1.2.md) 全部 4 项必改与 2 项建议完成修正**：
+  1. **新风量出处对齐 ASHRAE 62.1-2022**：将 `configs/building_{modern,retrofitted,historic}.yaml`、`src/museum_v2/eplus/build_model.py` 与 `src/museum_v2/rom.py` 的设计新风定额统一更新为 ASHRAE Standard 62.1-2022 Table 6-1 *Museums/galleries*（$R_p = 3.8\;\text{L}/(\text{s}\cdot\text{person})$，$R_a = 0.3\;\text{L}/(\text{s}\cdot\text{m}^2)$，`0.0038 m³/s/person + 0.0003 m³/s/m²`），并在配置文件与 [docs/MODEL.md](MODEL.md) 第 4、6.2 节逐条写明出处。
+  2. **A 层补齐机械新风强迫与开放时间表**：在 [src/museum_v2/rom.py](../src/museum_v2/rom.py) 的 `EnvelopeConfig` 与 `MuseumROM.forward` 中新增 `oa_flow_per_person_m3_s`、`oa_flow_per_area_m3_s_m2`、`m_vent_kg_s` 机械新风热湿平流项及 `museum_operating_schedules`（周二至周日 `09:00–17:00` 开放、周一闭馆）；`make_adiabatic_config` 同步将新风清零保持绝热守恒；[tests/test_rom.py](../tests/test_rom.py) 扩展 `0.0` 新风与 ASHRAE 62.1 默认新风双工况下对无预消元 $10\times 10$ 参考循环的机器精度比对。
+  3. **B 层双口径负荷输出**：[src/museum_v2/eplus/build_model.py](../src/museum_v2/eplus/build_model.py) 与 [src/museum_v2/eplus/runner.py](../src/museum_v2/eplus/runner.py) 同步采集 `Zone Ideal Loads Supply Air ... Energy`（含新风，直接对应 A 层总负荷）与 `Zone Ideal Loads Zone ... Energy`（不含新风纯室内区负荷），并重跑三档全年 EnergyPlus 23.2.0 基准至 [results_summary/S1.2/summary.md](../results_summary/S1.2/summary.md) 与 [results_summary/S1.2/f0_verification.json](../results_summary/S1.2/f0_verification.json)：全部 `0 Severe / 0 Fatal`，`21±1 °C` 达标率均 **`100.00%`**，`50±5 %RH` 达标率 **`99.52%–100.00%`**；在 `modern` 档实测记录到核心区 `SPACE5-1` 仅有的 `42` 小时轻微低湿偏移（最低 `44.33 %RH` @ 第 `736` 小时，高客流新风均流 `0.144 kg/s` vs 全年均值 `0.044 kg/s` 伴低显热负荷）。
+  4. **补全 A/B 结构差别与 PR #13 非阻塞附注**：在 [docs/MODEL.md](MODEL.md) 新增第 6.4 节系统列出 A/B 两层 4 项结构差别（湿缓冲 $\tau_b = 8\text{ h}$ vs $\tau_b \to 0$、新风强迫与 `Supply Air`/`Zone` 口径映射、集中 $U A$/单地温 vs CTF/表面辐射/月度地温、可微盘管除湿再热 vs `IdealLoads`），并在第 4.1 节补齐一次 8 h 阶跃近似相对 NORDTEST 8/16 h 循环稳态的一句说明。
+- **全量回归测试**：`.venv`（无 `PYTHONPATH`）下 **`67 passed, 3 skipped in 26.35s`**；单核 PyTorch（`OMP_NUM_THREADS=1 MKL_NUM_THREADS=1`）下 **`70 passed in 71.98s`（0 skipped）**。
+
 ### 2026-11-19 · claude · main（审查 PR #13、#14、#15）
 - **PR #13（S1.1b）通过并合并**：审查者直接打开 Rode 等 2005 报告 PDF，核对 Table 3-5 与 Table 4-1 的数值和分级，与 PR 一致；手算推导式一致；`pytest tests` 64 通过、3 跳过。合并前在分支上解决了 `TASKS.md` 状态表冲突。
 - **PR #14（S1.2）退回**：模型本身符合任务卡，F0 达标率很高。退回原因有三：新风量（每人 4.72 L/s）没有出处，ASHRAE 62.1 博物馆为 3.8 L/s；B 层新增了机械新风而 A 层没有，S1.3 辨识会出错；输出只有含新风的 Supply Air 负荷。另外，B 层湿容倍数没有时间常数，已在 S1.3 卡里写明湿缓冲参数不辨识。

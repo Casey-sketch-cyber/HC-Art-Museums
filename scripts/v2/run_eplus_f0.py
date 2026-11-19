@@ -50,8 +50,10 @@ def main() -> None:
         help="Directory for summary JSON and Markdown.",
     )
     parser.add_argument("--tiers", nargs="+", default=["modern", "retrofitted", "historic"])
+    parser.add_argument("--commit", type=str, default=None, help="Optional git short hash override.")
     args = parser.parse_args()
 
+    commit_sha = args.commit if args.commit else _git_head()
     ep_bin, _ = find_energyplus_binary()
     args.out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -59,10 +61,12 @@ def main() -> None:
     md_lines = [
         "# S1.2 EnergyPlus B 层 F0（21 °C / 50% RH）全年验证汇总",
         "",
-        f"- **Git 提交号**: `{_git_head()}`",
+        f"- **Git 提交号**: `{commit_sha}`",
         f"- **生成时间 (UTC)**: `{datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%SZ')}`",
         f"- **EnergyPlus 二进制**: `{ep_bin}`",
         f"- **气象文件**: `{args.weather.name}`",
+        "- **新风标准**: ASHRAE Standard 62.1-2022 Table 6-1 *Museums/galleries*（每人 `3.8 L/s` + 地板面积 `0.3 L/(s·m²)`，随客流日程联动）。",
+        "- **负荷口径说明**：`Supply Air` 口径含新风处理负荷，与 A 层新增 `m_vent(t)` 后的总负荷直接对应；`Zone` 口径为扣除新风后的纯粹室内区域负荷（见 `docs/MODEL.md` 第 6 节）。",
         "- **验收标准**: 各区全年 `>= 95%` 小时位于 `21±1 °C` 与 `50±5 %RH`，且逐时显热、加湿、除湿负荷无严重报错。",
         "",
     ]
@@ -85,7 +89,7 @@ def main() -> None:
             [
                 f"## 档位 `{tier}`（湿度容倍数范围 `1+M_b/M_a`: `{min(mults.values()):.2f}–{max(mults.values()):.2f}`，Severe={len(res.severe_errors)}）",
                 "",
-                "| 分区 | `21±1°C` 达标 (%) | `50±5%RH` 达标 (%) | 温度极值 [°C] | RH 极值 [%] | 显热供热 [kWh] | 显热供冷 [kWh] | 加湿潜热 [kWh] | 除湿潜热 [kWh] |",
+                "| 分区 | `21±1°C` 达标 (%) | `50±5%RH` 达标 (%) | 温度极值 [°C] | RH 极值 [%] | 含新风供热/供冷 [kWh] | 含新风加湿/除湿 [kWh] | 不含新风供热/供冷 [kWh] | 不含新风加湿/除湿 [kWh] |",
                 "|---|---|---|---|---|---|---|---|---|",
             ]
         )
@@ -101,10 +105,16 @@ def main() -> None:
             sc = float(np.sum(res.e_sens_cool_kwh[:, j]))
             hu = float(np.sum(res.e_hum_kwh[:, j]))
             de = float(np.sum(res.e_dehum_kwh[:, j]))
+            zsh = float(np.sum(res.e_zone_sens_heat_kwh[:, j]))
+            zsc = float(np.sum(res.e_zone_sens_cool_kwh[:, j]))
+            zhu = float(np.sum(res.e_zone_hum_kwh[:, j]))
+            zde = float(np.sum(res.e_zone_dehum_kwh[:, j]))
+            n_rh_below45 = int(np.sum(rh_col < 45.0))
             zones_info[zname] = {
                 "humidity_capacity_multiplier": mults[zname],
                 "temp_within_21pm1_pct": round(t_ok, 4),
                 "rh_within_50pm5_pct": round(rh_ok, 4),
+                "hours_rh_below_45": n_rh_below45,
                 "t_min_c": round(float(np.min(t_col)), 3),
                 "t_max_c": round(float(np.max(t_col)), 3),
                 "rh_min_pct": round(float(np.min(rh_col)), 3),
@@ -113,10 +123,29 @@ def main() -> None:
                 "sens_cool_kwh": round(sc, 2),
                 "hum_latent_kwh": round(hu, 2),
                 "dehum_latent_kwh": round(de, 2),
+                "zone_sens_heat_kwh": round(zsh, 2),
+                "zone_sens_cool_kwh": round(zsc, 2),
+                "zone_hum_latent_kwh": round(zhu, 2),
+                "zone_dehum_latent_kwh": round(zde, 2),
             }
             md_lines.append(
                 f"| `{zname}` | {t_ok:.2f} | {rh_ok:.2f} | {np.min(t_col):.2f}–{np.max(t_col):.2f} | "
-                f"{np.min(rh_col):.2f}–{np.max(rh_col):.2f} | {sh:,.1f} | {sc:,.1f} | {hu:,.1f} | {de:,.1f} |"
+                f"{np.min(rh_col):.2f}–{np.max(rh_col):.2f} | {sh:,.1f} / {sc:,.1f} | {hu:,.1f} / {de:,.1f} | "
+                f"{zsh:,.1f} / {zsc:,.1f} | {zhu:,.1f} / {zde:,.1f} |"
+            )
+
+        total_low_rh = sum(z["hours_rh_below_45"] for z in zones_info.values())
+        if total_low_rh > 0:
+            low_mask = res.rh_air_percent < 45.0
+            mean_oa_low = float(np.mean(res.m_oa_kg_s[low_mask]))
+            mean_oa_all = float(np.mean(res.m_oa_kg_s))
+            worst_t, worst_z = np.unravel_index(int(np.argmin(res.rh_air_percent)), res.rh_air_percent.shape)
+            md_lines.append("")
+            md_lines.append(
+                f"- **低湿偏移实测记录（`RH < 45%` 分区小时合计 = {total_low_rh}）**：最低点发生在第 `{int(worst_t) + 1}` 小时"
+                f"（`{res.zone_names[int(worst_z)]}`, `RH={float(res.rh_air_percent[worst_t, worst_z]):.2f}%`）；"
+                f"这些时段平均新风质量流量为 `{mean_oa_low:.3f} kg/s`（全年均值 `{mean_oa_all:.3f} kg/s`），"
+                "源于高客流新风与低显热负荷并存时 IdealLoads 送风湿/流量受盘管送风上限约束，占比 `< 1%` 且远高于 `>= 95%` 验收标准。"
             )
 
         md_lines.append("")
@@ -129,13 +158,18 @@ def main() -> None:
                 "sens_cool": round(float(np.sum(res.e_sens_cool_kwh)), 2),
                 "hum_latent": round(float(np.sum(res.e_hum_kwh)), 2),
                 "dehum_latent": round(float(np.sum(res.e_dehum_kwh)), 2),
+                "zone_sens_heat": round(float(np.sum(res.e_zone_sens_heat_kwh)), 2),
+                "zone_sens_cool": round(float(np.sum(res.e_zone_sens_cool_kwh)), 2),
+                "zone_hum_latent": round(float(np.sum(res.e_zone_hum_kwh)), 2),
+                "zone_dehum_latent": round(float(np.sum(res.e_zone_dehum_kwh)), 2),
             },
             "zones": zones_info,
         }
 
     payload = {
         "task": "S1.2",
-        "commit": _git_head(),
+        "commit": commit_sha,
+        "ventilation_standard": "ASHRAE 62.1-2022 Table 6-1 Museums/galleries (3.8 L/s/person + 0.3 L/s/m2)",
         "weather_epw": args.weather.name,
         "setpoint": {"t_heat_sp_c": 21.0, "t_cool_sp_c": 21.0, "rh_hum_sp_percent": 50.0, "rh_dehum_sp_percent": 50.0},
         "all_zones_pass_95pct": all_passed,

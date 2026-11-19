@@ -77,6 +77,10 @@ def test_build_museum_epjson_schema_and_s11b_moisture_multipliers():
             assert mult_obj["humidity_capacity_multiplier"] == expected_mults[z]
             assert mult_obj["humidity_capacity_multiplier"] > 4.0
 
+            dsoa_obj = ep["DesignSpecification:OutdoorAir"][f"SZ DSOA {z}"]
+            assert dsoa_obj["outdoor_air_flow_per_person"] == pytest.approx(0.0038)
+            assert dsoa_obj["outdoor_air_flow_per_zone_floor_area"] == pytest.approx(0.0003)
+
         assert ep["Schedule:Compact"]["INFIL-SCH"]["data"][-1] == {"field": 1.0}
         assert ep["ZoneInfiltration:DesignFlowRate"]["SPACE1-1 Infil 1"]["air_changes_per_hour"] == pytest.approx(
             cfg.envelope.infiltration_ach_design
@@ -113,6 +117,9 @@ def test_energyplus_live_f0_and_per_zone_differentiation():
     assert np.sum(res_f0.e_sens_cool_kwh) > 1000.0
     assert np.sum(res_f0.e_hum_kwh) > 1000.0
     assert np.sum(res_f0.e_dehum_kwh) > 1000.0
+    assert np.sum(res_f0.e_zone_sens_heat_kwh) > 500.0
+    assert np.sum(res_f0.e_zone_sens_cool_kwh) > 1000.0
+    assert np.sum(res_f0.e_sens_heat_kwh) > np.sum(res_f0.e_zone_sens_heat_kwh)
 
     # 2. Verify zones can independently enforce distinct T & RH bands
     ep_diff = build_museum_epjson(

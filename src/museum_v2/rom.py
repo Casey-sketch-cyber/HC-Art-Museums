@@ -113,6 +113,8 @@ class EnvelopeConfig:
     thermal_mass_multiplier: float = 1.0
     moisture_buffer_multiplier: float = 1.0
     effective_mbv_g_m2_rh: float = 0.50
+    oa_flow_per_person_m3_s: float = 0.0038  # ASHRAE 62.1 Table 6-1 Museums/galleries: 3.8 L/(s*person)
+    oa_flow_per_area_m3_s_m2: float = 0.0003  # ASHRAE 62.1 Table 6-1 Museums/galleries: 0.3 L/(s*m2)
 
 
 @dataclass(frozen=True)
@@ -227,7 +229,7 @@ def load_building_tier(tier: str, config_dir: str | Path | None = None) -> Museu
 
 
 def make_adiabatic_config(base: MuseumROMConfig) -> MuseumROMConfig:
-    """Return a copy of ``base`` with zero exterior conduction, zero ground heat loss, and zero infiltration."""
+    """Return a copy of ``base`` with zero exterior conduction, ground heat loss, infiltration, and ventilation."""
     env = replace(
         base.envelope,
         u_wall_w_m2_k=0.0,
@@ -236,8 +238,74 @@ def make_adiabatic_config(base: MuseumROMConfig) -> MuseumROMConfig:
         u_ground_w_m2_k=0.0,
         window_shgc=0.0,
         infiltration_ach_design=0.0,
+        oa_flow_per_person_m3_s=0.0,
+        oa_flow_per_area_m3_s_m2=0.0,
     )
     return replace(base, tier=f"{base.tier}_adiabatic", envelope=env)
+
+
+def museum_operating_schedules(
+    n_hours: int = 8760,
+    *,
+    start_day_of_week: str = "Monday",
+) -> dict[str, np.ndarray]:
+    """Return EnergyPlus-matched hourly museum schedules (``OCCUPY-1``, ``LIGHTS-1``, ``EQUIP-1``).
+
+    Follows the museum schedule definition in ``build_model.py``: Monday closed (5% staff,
+    25% daytime lighting, 35% daytime equipment) and Tuesday-Sunday 09:00-17:00 open.
+    Day 0 defaults to ``Monday`` matching ``5ZoneAutoDXVAV_multizone.epJSON`` ``RunPeriod 1``.
+    """
+    days = ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")
+    s_norm = start_day_of_week.strip().lower()
+    if s_norm not in days:
+        raise ValueError(f"Unknown start_day_of_week '{start_day_of_week}'. Expected one of {days}.")
+    start_idx = days.index(s_norm)
+
+    occ = np.zeros(n_hours, dtype=np.float64)
+    lights = np.zeros(n_hours, dtype=np.float64)
+    equip = np.zeros(n_hours, dtype=np.float64)
+
+    for h in range(n_hours):
+        day_idx = (start_idx + (h // 24)) % 7
+        hod = h % 24  # EnergyPlus Hour 1..24 maps 0..23 -> Until: (hod + 1):00
+        is_monday = day_idx == 0
+
+        if is_monday:
+            occ[h] = 0.05 if 9 <= hod < 17 else 0.0
+            if hod < 8:
+                lights[h], equip[h] = 0.05, 0.15
+            elif hod == 8:
+                # 08:00-08:30 low, 08:30-09:00 open -> mean over hour
+                lights[h], equip[h] = 0.5 * (0.05 + 0.25), 0.5 * (0.15 + 0.35)
+            elif 9 <= hod < 17:
+                lights[h], equip[h] = 0.25, 0.35
+            elif hod == 17:
+                # 17:00-17:30 active, 17:30-18:00 low -> mean over hour
+                lights[h], equip[h] = 0.5 * (0.25 + 0.05), 0.5 * (0.35 + 0.15)
+            else:
+                lights[h], equip[h] = 0.05, 0.15
+        else:
+            if 9 <= hod < 11:
+                occ[h] = 0.65
+            elif 11 <= hod < 14:
+                occ[h] = 0.90
+            elif 14 <= hod < 16:
+                occ[h] = 0.85
+            elif hod == 16:
+                occ[h] = 0.50
+
+            if hod < 8:
+                lights[h], equip[h] = 0.05, 0.15
+            elif hod == 8:
+                lights[h], equip[h] = 0.5 * (0.05 + 0.80), 0.5 * (0.15 + 0.70)
+            elif 9 <= hod < 17:
+                lights[h], equip[h] = 0.80, 0.70
+            elif hod == 17:
+                lights[h], equip[h] = 0.5 * (0.80 + 0.05), 0.5 * (0.70 + 0.15)
+            else:
+                lights[h], equip[h] = 0.05, 0.15
+
+    return {"occupancy_frac": occ, "lighting_frac": lights, "equipment_frac": equip}
 
 
 def scale_moisture_buffer(base: MuseumROMConfig, factor: float) -> MuseumROMConfig:
@@ -512,6 +580,10 @@ class MuseumROM(_BaseModule):  # type: ignore[misc]
         self.design_equip_w_np = np.array([z.design_equip_w for z in config.zones], dtype=np.float64)
         self.design_people_np = np.array([z.design_people for z in config.zones], dtype=np.float64)
 
+        # ASHRAE 62.1 mechanical outdoor-air ventilation mass flow coefficients [kg_da/s]
+        self.m_vent_person_design_np = c.rho_air_kg_m3 * env.oa_flow_per_person_m3_s * self.design_people_np
+        self.m_vent_area_design_np = c.rho_air_kg_m3 * env.oa_flow_per_area_m3_s_m2 * floor_areas
+
         # HVAC capacities [W] or [kg_v/s] per zone
         self.q_heat_max_np = hv.q_heat_max_w_per_m2 * floor_areas
         self.q_cool_max_np = hv.q_cool_max_w_per_m2 * floor_areas
@@ -571,6 +643,7 @@ class MuseumROM(_BaseModule):  # type: ignore[misc]
         lighting_frac: ArrayLike | None = None,
         equipment_frac: ArrayLike | None = None,
         infiltration_scale: ArrayLike | None = None,
+        m_vent_kg_s: ArrayLike | None = None,
         t_ground_c: ArrayLike | None = None,
         q_extra_air_w: ArrayLike | None = None,
         q_extra_mass_w: ArrayLike | None = None,
@@ -601,6 +674,7 @@ class MuseumROM(_BaseModule):  # type: ignore[misc]
                 w_out_kg_kg,
                 solar_rad_w_m2,
                 occupancy_frac,
+                m_vent_kg_s,
                 t_heat_sp_c,
                 t_cool_sp_c,
                 rh_hum_sp_percent,
@@ -620,6 +694,7 @@ class MuseumROM(_BaseModule):  # type: ignore[misc]
                 lighting_frac=lighting_frac,
                 equipment_frac=equipment_frac,
                 infiltration_scale=infiltration_scale,
+                m_vent_kg_s=m_vent_kg_s,
                 t_ground_c=t_ground_c,
                 q_extra_air_w=q_extra_air_w,
                 q_extra_mass_w=q_extra_mass_w,
@@ -645,6 +720,7 @@ class MuseumROM(_BaseModule):  # type: ignore[misc]
             lighting_frac=lighting_frac,
             equipment_frac=equipment_frac,
             infiltration_scale=infiltration_scale,
+            m_vent_kg_s=m_vent_kg_s,
             t_ground_c=t_ground_c,
             q_extra_air_w=q_extra_air_w,
             q_extra_mass_w=q_extra_mass_w,
@@ -673,6 +749,7 @@ class MuseumROM(_BaseModule):  # type: ignore[misc]
         lighting_frac: ArrayLike | None,
         equipment_frac: ArrayLike | None,
         infiltration_scale: ArrayLike | None,
+        m_vent_kg_s: ArrayLike | None,
         t_ground_c: ArrayLike | None,
         q_extra_air_w: ArrayLike | None,
         q_extra_mass_w: ArrayLike | None,
@@ -681,6 +758,7 @@ class MuseumROM(_BaseModule):  # type: ignore[misc]
         t_cool_sp_c: ArrayLike | None,
         rh_hum_sp_percent: ArrayLike | None,
         rh_dehum_sp_percent: ArrayLike | None,
+        hvac_active: bool,
         t_air_init_c: ArrayLike | None,
         t_mass_init_c: ArrayLike | None,
         w_air_init_kg_kg: ArrayLike | None,
@@ -748,6 +826,18 @@ class MuseumROM(_BaseModule):  # type: ignore[misc]
         lights = _btz(lighting_frac, 0.0) if lighting_frac is not None else occ
         equip = _btz(equipment_frac, 0.0) if equipment_frac is not None else occ
         inf_scale = _bt(infiltration_scale, 1.0)
+        if m_vent_kg_s is not None:
+            m_vent = _btz(m_vent_kg_s, 0.0)
+        elif not hvac_active:
+            m_vent = np.zeros((B, T, N), dtype=np.float64)
+        else:
+            occ_vent = occ if occupancy_frac is not None else _btz(
+                museum_operating_schedules(T)["occupancy_frac"], 0.0
+            )
+            m_vent = (
+                occ_vent * self.m_vent_person_design_np[None, None, :]
+                + self.m_vent_area_design_np[None, None, :]
+            )
         t_gnd = _bt(t_ground_c, float(np.mean(t_out))) if t_ground_c is None else _bt(t_ground_c, 15.0)
 
         c = self.config.constants
@@ -778,6 +868,7 @@ class MuseumROM(_BaseModule):  # type: ignore[misc]
             "t_out": t_out,
             "w_out": w_out,
             "inf_scale": inf_scale,
+            "m_vent": m_vent,
             "t_ground": t_gnd,
             "q_air": q_air,
             "q_mass": q_mass,
@@ -876,6 +967,8 @@ class MuseumROM(_BaseModule):  # type: ignore[misc]
         w_buffer: Any,
         t_a_free: Any,
         w_a_free: Any,
+        m_vent_kg_s: Any,
+        m_infil_kg_s: Any,
         q_sens_heat: Any,
         q_sens_cool: Any,
         m_hum: Any,
@@ -938,6 +1031,8 @@ class MuseumROM(_BaseModule):  # type: ignore[misc]
             "w_air_kg_kg": w_air,
             "w_buffer_kg_kg": w_buffer,
             "rh_air_percent": rh_air,
+            "m_vent_kg_s": m_vent_kg_s,
+            "m_infil_kg_s": m_infil_kg_s,
             "q_sens_heat_w": q_sens_heat,
             "q_sens_cool_w": q_sens_cool,
             "q_hum_w": q_hum,
@@ -1000,6 +1095,7 @@ class MuseumROM(_BaseModule):  # type: ignore[misc]
         lighting_frac: ArrayLike | None,
         equipment_frac: ArrayLike | None,
         infiltration_scale: ArrayLike | None,
+        m_vent_kg_s: ArrayLike | None,
         t_ground_c: ArrayLike | None,
         q_extra_air_w: ArrayLike | None,
         q_extra_mass_w: ArrayLike | None,
@@ -1025,6 +1121,7 @@ class MuseumROM(_BaseModule):  # type: ignore[misc]
             lighting_frac=lighting_frac,
             equipment_frac=equipment_frac,
             infiltration_scale=infiltration_scale,
+            m_vent_kg_s=m_vent_kg_s,
             t_ground_c=t_ground_c,
             q_extra_air_w=q_extra_air_w,
             q_extra_mass_w=q_extra_mass_w,
@@ -1033,6 +1130,7 @@ class MuseumROM(_BaseModule):  # type: ignore[misc]
             t_cool_sp_c=t_cool_sp_c,
             rh_hum_sp_percent=rh_hum_sp_percent,
             rh_dehum_sp_percent=rh_dehum_sp_percent,
+            hvac_active=hvac_active,
             t_air_init_c=t_air_init_c,
             t_mass_init_c=t_mass_init_c,
             w_air_init_kg_kg=w_air_init_kg_kg,
@@ -1058,12 +1156,14 @@ class MuseumROM(_BaseModule):  # type: ignore[misc]
         alpha_b = self.k_ab_np / d_b
         k_ab_eff = self.k_ab_np * (1.0 - alpha_b)
 
-        # Time-varying infiltration & batched matrix inversions (B, T, N, N)
+        # Time-varying infiltration + mechanical outdoor ventilation & batched inversions (B, T, N, N)
         m_inf = prep["inf_scale"][:, :, None] * self.m_inf_design_np[None, None, :]
-        h_inf = cp * m_inf
+        m_vent = prep["m_vent"]
+        m_oa = m_inf + m_vent
+        h_oa = cp * m_oa
 
-        diag_t = (c_a_dt + self.h_ext_np + h_am_eff)[None, None, :] + h_inf
-        diag_w = (m_a_dt + k_ab_eff)[None, None, :] + m_inf
+        diag_t = (c_a_dt + self.h_ext_np + h_am_eff)[None, None, :] + h_oa
+        diag_w = (m_a_dt + k_ab_eff)[None, None, :] + m_oa
 
         eye = np.eye(N, dtype=np.float64)[None, None, :, :]
         mat_t = self.laplacian_t_np[None, None, :, :] + diag_t[:, :, :, None] * eye
@@ -1112,7 +1212,7 @@ class MuseumROM(_BaseModule):  # type: ignore[misc]
             term_m = (t_m * c_m_dt + t_gnd[:, t : t + 1] * self.h_ground_np + q_mass_arr[:, t]) / d_m
             r_t = (
                 t_a * c_a_dt
-                + t_out[:, t : t + 1] * (self.h_ext_np + h_inf[:, t])
+                + t_out[:, t : t + 1] * (self.h_ext_np + h_oa[:, t])
                 + self.h_am_np * term_m
                 + q_air_arr[:, t]
             )
@@ -1121,7 +1221,7 @@ class MuseumROM(_BaseModule):  # type: ignore[misc]
             term_b = (w_b * m_b_dt) / d_b
             r_w = (
                 w_a * m_a_dt
-                + w_out[:, t : t + 1] * m_inf[:, t]
+                + w_out[:, t : t + 1] * m_oa[:, t]
                 + self.k_ab_np * term_b
                 + m_vap_arr[:, t]
             )
@@ -1171,6 +1271,8 @@ class MuseumROM(_BaseModule):  # type: ignore[misc]
             w_buffer=buffers["w_buffer_kg_kg"],
             t_a_free=buffers["t_a_free"],
             w_a_free=buffers["w_a_free"],
+            m_vent_kg_s=m_vent,
+            m_infil_kg_s=m_inf,
             q_sens_heat=buffers["q_sens_heat_w"],
             q_sens_cool=buffers["q_sens_cool_w"],
             m_hum=buffers["m_hum_kg_s"],
@@ -1194,6 +1296,7 @@ class MuseumROM(_BaseModule):  # type: ignore[misc]
         lighting_frac: ArrayLike | None,
         equipment_frac: ArrayLike | None,
         infiltration_scale: ArrayLike | None,
+        m_vent_kg_s: ArrayLike | None,
         t_ground_c: ArrayLike | None,
         q_extra_air_w: ArrayLike | None,
         q_extra_mass_w: ArrayLike | None,
@@ -1296,6 +1399,20 @@ class MuseumROM(_BaseModule):  # type: ignore[misc]
         lights = _btz(lighting_frac, 0.0) if lighting_frac is not None else occ
         equip = _btz(equipment_frac, 0.0) if equipment_frac is not None else occ
         inf_scale = _bt(infiltration_scale, 1.0)
+        if m_vent_kg_s is not None:
+            m_vent = _btz(m_vent_kg_s, 0.0)
+        elif not hvac_active:
+            m_vent = torch.zeros((B, T, N), dtype=dtype, device=device)
+        else:
+            occ_vent = (
+                occ
+                if occupancy_frac is not None
+                else _btz(museum_operating_schedules(T)["occupancy_frac"], 0.0)
+            )
+            m_vent = (
+                occ_vent * _as_t(self.m_vent_person_design_np).view(1, 1, N)
+                + _as_t(self.m_vent_area_design_np).view(1, 1, N)
+            )
         t_gnd = torch.mean(t_out, dim=1, keepdim=True).expand(B, T) if t_ground_c is None else _bt(t_ground_c, 15.0)
 
         c = self.config.constants
@@ -1356,27 +1473,33 @@ class MuseumROM(_BaseModule):  # type: ignore[misc]
         # Precompute all T inverses and boundary source vectors before entering TorchScript kernel.
         hv = self.config.hvac
         constant_inf = infiltration_scale is None
+        constant_vent = (not hvac_active and m_vent_kg_s is None) or isinstance(m_vent_kg_s, (int, float))
+        constant_oa = constant_inf and constant_vent
         eye = torch.eye(N, dtype=dtype, device=device)
-        if constant_inf:
-            h_inf_all = (c.cp_air_j_kg_k * m_inf_design).view(1, 1, N)
-            m_inf_all = m_inf_design.view(1, 1, N)
-            mat_t_const = lap_t + torch.diag(c_a_dt + h_ext + h_am_eff + c.cp_air_j_kg_k * m_inf_design)
-            mat_w_const = lap_w + torch.diag(m_a_dt + k_ab_eff + m_inf_design)
+        if constant_oa:
+            m_vent0 = torch.zeros((1, 1, N), dtype=dtype, device=device) if m_vent_kg_s is None else m_vent[:1, :1, :]
+            m_oa_0 = m_inf_design.view(1, 1, N) + m_vent0
+            m_inf_all = m_inf_design.view(1, 1, N).expand(B, T, N)
+            m_oa_all = m_oa_0
+            h_oa_all = c.cp_air_j_kg_k * m_oa_all
+            mat_t_const = lap_t + torch.diag(c_a_dt + h_ext + h_am_eff + c.cp_air_j_kg_k * m_oa_0.view(N))
+            mat_w_const = lap_w + torch.diag(m_a_dt + k_ab_eff + m_oa_0.view(N))
             inv_at_all = torch.linalg.inv(mat_t_const).view(1, 1, N, N).expand(B, 1, N, N)
             inv_aw_all = torch.linalg.inv(mat_w_const).view(1, 1, N, N).expand(B, 1, N, N)
         else:
             m_inf_all = inf_scale.unsqueeze(-1) * m_inf_design.view(1, 1, N)
-            h_inf_all = c.cp_air_j_kg_k * m_inf_all
-            diag_t = (c_a_dt + h_ext + h_am_eff).view(1, 1, N) + h_inf_all
-            diag_w = (m_a_dt + k_ab_eff).view(1, 1, N) + m_inf_all
+            m_oa_all = m_inf_all + m_vent
+            h_oa_all = c.cp_air_j_kg_k * m_oa_all
+            diag_t = (c_a_dt + h_ext + h_am_eff).view(1, 1, N) + h_oa_all
+            diag_w = (m_a_dt + k_ab_eff).view(1, 1, N) + m_oa_all
             mat_t = lap_t.view(1, 1, N, N) + diag_t.unsqueeze(-1) * eye.view(1, 1, N, N)
             mat_w = lap_w.view(1, 1, N, N) + diag_w.unsqueeze(-1) * eye.view(1, 1, N, N)
             inv_at_all = torch.linalg.inv(mat_t)
             inv_aw_all = torch.linalg.inv(mat_w)
 
         src_m = (t_gnd.unsqueeze(-1) * h_ground.view(1, 1, N) + q_mass) / d_m.view(1, 1, N)
-        src_t = t_out.unsqueeze(-1) * (h_ext.view(1, 1, N) + h_inf_all) + q_air
-        src_w = w_out.unsqueeze(-1) * m_inf_all + m_vapor
+        src_t = t_out.unsqueeze(-1) * (h_ext.view(1, 1, N) + h_oa_all) + q_air
+        src_w = w_out.unsqueeze(-1) * m_oa_all + m_vapor
 
         (
             t_air,
@@ -1429,6 +1552,8 @@ class MuseumROM(_BaseModule):  # type: ignore[misc]
             w_buffer=w_buffer,
             t_a_free=t_a_free,
             w_a_free=w_a_free,
+            m_vent_kg_s=m_vent,
+            m_infil_kg_s=m_inf_all,
             q_sens_heat=q_sens_heat,
             q_sens_cool=q_sens_cool,
             m_hum=m_hum,

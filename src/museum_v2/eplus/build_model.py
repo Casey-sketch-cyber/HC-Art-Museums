@@ -337,13 +337,14 @@ def _configure_per_zone_idealloads(
     zone_mixing = ep["ZoneMixing"] = {}
 
     # Occupancy-coupled fresh air requirements on DesignSpecification:OutdoorAir
+    # Source: ASHRAE Standard 62.1 Table 6-1, Museums/galleries (R_p = 3.8 L/(s*person), R_a = 0.3 L/(s*m2))
     dsoa = ep.setdefault("DesignSpecification:OutdoorAir", {})
     dsoa.pop("ZoneMinOARequirements", None)
     for z in config.zones:
         dsoa[f"SZ DSOA {z.name}"] = {
             "outdoor_air_method": "Sum",
-            "outdoor_air_flow_per_person": 0.00472,        # ~4.72 L/(s*person) = 17 m3/(h*person)
-            "outdoor_air_flow_per_zone_floor_area": 0.0003, # Low background envelope purge (~0.3 L/(s*m2))
+            "outdoor_air_flow_per_person": float(config.envelope.oa_flow_per_person_m3_s),
+            "outdoor_air_flow_per_zone_floor_area": float(config.envelope.oa_flow_per_area_m3_s_m2),
             "outdoor_air_flow_per_zone": 0.0,
             "outdoor_air_schedule_name": "AlwaysOn",
         }
@@ -502,6 +503,12 @@ def _configure_outputs(ep: dict[str, Any]) -> None:
         ("*", "Zone Ideal Loads Supply Air Latent Cooling Energy"),
         ("*", "Zone Ideal Loads Supply Air Total Heating Energy"),
         ("*", "Zone Ideal Loads Supply Air Total Cooling Energy"),
+        ("*", "Zone Ideal Loads Zone Sensible Heating Energy"),
+        ("*", "Zone Ideal Loads Zone Sensible Cooling Energy"),
+        ("*", "Zone Ideal Loads Zone Latent Heating Energy"),
+        ("*", "Zone Ideal Loads Zone Latent Cooling Energy"),
+        ("*", "Zone Ideal Loads Zone Total Heating Energy"),
+        ("*", "Zone Ideal Loads Zone Total Cooling Energy"),
         ("*", "Zone Ideal Loads Outdoor Air Mass Flow Rate"),
         ("*", "Zone Infiltration Mass Flow Rate"),
     ]

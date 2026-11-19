@@ -33,8 +33,14 @@ class EnergyPlusResult:
     e_sens_cool_kwh: np.ndarray    # (T, 5)
     e_hum_kwh: np.ndarray          # (T, 5) Latent heating energy [kWh_th]
     e_dehum_kwh: np.ndarray        # (T, 5) Latent cooling energy [kWh_th]
-    e_total_heat_kwh: np.ndarray   # (T, 5)
-    e_total_cool_kwh: np.ndarray   # (T, 5)
+    e_total_heat_kwh: np.ndarray   # (T, 5) Supply Air total heating (with OA)
+    e_total_cool_kwh: np.ndarray   # (T, 5) Supply Air total cooling (with OA)
+    e_zone_sens_heat_kwh: np.ndarray   # (T, 5) Zone-only sensible heating (without OA)
+    e_zone_sens_cool_kwh: np.ndarray   # (T, 5) Zone-only sensible cooling (without OA)
+    e_zone_hum_kwh: np.ndarray         # (T, 5) Zone-only latent heating (without OA)
+    e_zone_dehum_kwh: np.ndarray       # (T, 5) Zone-only latent cooling (without OA)
+    e_zone_total_heat_kwh: np.ndarray  # (T, 5) Zone-only total heating (without OA)
+    e_zone_total_cool_kwh: np.ndarray  # (T, 5) Zone-only total cooling (without OA)
     m_oa_kg_s: np.ndarray          # (T, 5)
     m_infil_kg_s: np.ndarray       # (T, 5)
     warnings: tuple[str, ...]
@@ -170,6 +176,24 @@ def parse_eplus_csv(
         ),
         e_total_cool_kwh=_extract_zone_matrix(
             headers, cols, zones, "Zone Ideal Loads Supply Air Total Cooling Energy", scale=J_TO_KWH
+        ),
+        e_zone_sens_heat_kwh=_extract_zone_matrix(
+            headers, cols, zones, "Zone Ideal Loads Zone Sensible Heating Energy", scale=J_TO_KWH
+        ),
+        e_zone_sens_cool_kwh=_extract_zone_matrix(
+            headers, cols, zones, "Zone Ideal Loads Zone Sensible Cooling Energy", scale=J_TO_KWH
+        ),
+        e_zone_hum_kwh=_extract_zone_matrix(
+            headers, cols, zones, "Zone Ideal Loads Zone Latent Heating Energy", scale=J_TO_KWH
+        ),
+        e_zone_dehum_kwh=_extract_zone_matrix(
+            headers, cols, zones, "Zone Ideal Loads Zone Latent Cooling Energy", scale=J_TO_KWH
+        ),
+        e_zone_total_heat_kwh=_extract_zone_matrix(
+            headers, cols, zones, "Zone Ideal Loads Zone Total Heating Energy", scale=J_TO_KWH
+        ),
+        e_zone_total_cool_kwh=_extract_zone_matrix(
+            headers, cols, zones, "Zone Ideal Loads Zone Total Cooling Energy", scale=J_TO_KWH
         ),
         m_oa_kg_s=_extract_zone_matrix(
             headers, cols, zones, "Zone Ideal Loads Outdoor Air Mass Flow Rate"
