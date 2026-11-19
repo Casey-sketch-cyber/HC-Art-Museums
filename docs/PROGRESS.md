@@ -60,6 +60,13 @@ antigravity 按下面的顺序做：
   4. **补全 A/B 结构差别与 PR #13 非阻塞附注**：在 [docs/MODEL.md](MODEL.md) 新增第 6.4 节系统列出 A/B 两层 4 项结构差别（湿缓冲 $\tau_b = 8\text{ h}$ vs $\tau_b \to 0$、新风强迫与 `Supply Air`/`Zone` 口径映射、集中 $U A$/单地温 vs CTF/表面辐射/月度地温、可微盘管除湿再热 vs `IdealLoads`），并在第 4.1 节补齐一次 8 h 阶跃近似相对 NORDTEST 8/16 h 循环稳态的一句说明。
 - **全量回归测试**：`.venv`（无 `PYTHONPATH`）下 **`67 passed, 3 skipped in 26.35s`**；单核 PyTorch（`OMP_NUM_THREADS=1 MKL_NUM_THREADS=1`）下 **`70 passed in 71.98s`（0 skipped）**。
 
+### 2026-11-19 · antigravity · `antigravity/S5.1-related-work`（按 PR #15 审查意见完成修改并重交）
+- **合并 `main`**：已将 `main`（含 `PR #13 S1.1b` 与审查文档 `PR13/14/15`）并入本分支，合理合并 `references.bib`（保留 `rode2005moisture` 为第 76 条，S5.1 续录为第 77–91 条，总计 **91 条**）、`verification_log.md`、`TASKS.md` 与 `PROGRESS.md` 冲突。
+- **按 [docs/code_reviews/PR15_S5.1.md](code_reviews/PR15_S5.1.md) 完成全部 3 项必改**：
+  1. **核实并重写 `Guo et al. (2023)`（`guo2023drl`, *Applied Intelligence* 53(13):16724–16746）**：对照 Springer 出版页与原文摘要逐句重写 [docs/RELATED_WORK.md](RELATED_WORK.md) 第二节与第 3.2 节表——删去误写的“CFD + 调风口”描述（原文未用 CFD），明确研究对象为**分布式恒湿机组**，算法为无模型 DRL **`RH-rainbow`**，**状态**为分布式环境传感器参数，**动作**为各恒湿机的**湿度设定点与风机档位**，**奖励**由**湿度平均绝对偏差（均匀性）与分布式设备能耗**构成，并在两种出风口配置及多种干扰下对比人工/模拟/DQN/PID；正面定位其为湿度设定点与风机档位 DRL 先行工作，并写清本文在**藏品滞后与损伤约束、显热/加湿/冷盘管除湿再热能耗拆解、多气候×三档围护前沿**三方面的区别。
+  2. **补齐正文曾引用的全部 5 条文献到 bib 与核验日志**：逐条检索并核对 CrossRef / Springer / Nature / arXiv 一手出版记录后，将 **`kramer2025dynamic`**（`10.1007/978-3-031-85655-6_4`, Springer *Collection Care*, pp. 35–43）、**`kazambayev2026archival`**（`10.3390/app162010100`, *Appl. Sci.* 16(20):10100）、**`shi2026substrate`**（`10.1038/s40494-026-03116-z`, *npj Herit. Sci.* 2026-11-14 在线发表）、**`ravajiri2026dpc`**（CrossRef *IEEE TSG* `10.1109/TSG.2026.3737375` Early Access 与 `arXiv:2609.12968` 双重核对）及 **`xu2026e2edpc`**（`arXiv:2603.22104` 建筑需求响应概率约束端到端 DPC）全数补入 [paper/iscience/references.bib](../paper/iscience/references.bib) 并在 [paper/refcheck/verification_log.md](../paper/refcheck/verification_log.md) 登记（#87–#91），正文一律改为对应 bib key。
+  3. **同步修订 [docs/PLAN_ISCIENCE.md](PLAN_ISCIENCE.md) 第 4 节表**：将“博物馆 RL”一行正式修正为“Bi 等 2025（DT+AI+绿能架构，原文未使用 DQN）+ Guo 等 2023（`RH-rainbow` 分布式恒湿机设定点与风机档位 DRL）”并写明与本研究的区别。
+
 ### 2026-11-19 · claude · main（审查 PR #13、#14、#15）
 - **PR #13（S1.1b）通过并合并**：审查者直接打开 Rode 等 2005 报告 PDF，核对 Table 3-5 与 Table 4-1 的数值和分级，与 PR 一致；手算推导式一致；`pytest tests` 64 通过、3 跳过。合并前在分支上解决了 `TASKS.md` 状态表冲突。
 - **PR #14（S1.2）退回**：模型本身符合任务卡，F0 达标率很高。退回原因有三：新风量（每人 4.72 L/s）没有出处，ASHRAE 62.1 博物馆为 3.8 L/s；B 层新增了机械新风而 A 层没有，S1.3 辨识会出错；输出只有含新风的 Supply Air 负荷。另外，B 层湿容倍数没有时间常数，已在 S1.3 卡里写明湿缓冲参数不辨识。
@@ -71,6 +78,9 @@ antigravity 按下面的顺序做：
   - 新增 [src/museum_v2/eplus/__init__.py](../src/museum_v2/eplus/__init__.py)、[src/museum_v2/eplus/build_model.py](../src/museum_v2/eplus/build_model.py) 与 [src/museum_v2/eplus/runner.py](../src/museum_v2/eplus/runner.py)：以 `5ZoneAutoDXVAV_multizone.epJSON` 为几何基准，拆除集中 VAV 与中央加湿器，改为 5 区独立 `ZoneHVAC:IdealLoadsAirSystem` + `ThermostatSetpoint:DualSetpoint` + 分离加/除湿设定点的 `ZoneControl:Humidistat` + 按客流联动的 `DesignSpecification:OutdoorAir`（`OccupancySchedule` DCV）；按 `configs/building_{historic,retrofitted,modern}.yaml` 同步三档墙/屋/窗传热、全年渗透率 `INFIL-SCH=1.0`、双向门洞 `ZoneMixing` 及博物馆开放时间表（周二至周日 `09:00–17:00`，周一闭馆）。
   - **湿缓冲一致对齐**：根据 PR #12 对 S1.2 的连带要求，利用 `ZoneCapacitanceMultiplier:ResearchSpecial` 按 `1 + M_b / (rho * V)` 同步 S1.1b 标定的总房湿容（`modern 4.32–5.94x`、`retrofitted 6.04–8.52x`、`historic 8.69–12.47x`），详见 [docs/MODEL.md](../docs/MODEL.md) 第 6 节。
 - **验证与产出**：新增 [scripts/v2/run_eplus_f0.py](../scripts/v2/run_eplus_f0.py) 与 [tests/test_eplus_model.py](../tests/test_eplus_model.py)，运行真实 EnergyPlus 23.2.0 全年（`USA_NY_New.York-J.F.Kennedy.Intl.AP.744860_TMY3.epw`）F0 检验并汇总至 [results_summary/S1.2/summary.md](../results_summary/S1.2/summary.md) 与 [results_summary/S1.2/f0_verification.json](../results_summary/S1.2/f0_verification.json)：三档 **0 Severe / 0 Fatal**，`21±1 °C` 达标率均 **`100.00%`**，`50±5 %RH` 达标率 **`99.26%–100.00%`**，且核实独立分区温湿度可控与分项显热/加湿/除湿能耗输出；计算主机沙盒全仓库测试：`.venv`（无 `PYTHONPATH`）下 **`63 passed, 3 skipped in 25.84s`**，单核 CPU PyTorch 环境下 **`66 passed in 66.08s`（0 skipped）**。
+
+### 2026-11-18 · antigravity · `antigravity/S5.1-related-work`（S5.1 初版提交）
+- **完成**：逐条核实 `docs/PLAN_ISCIENCE.md` 第 4 节表全部 7 条研究线并完成 2023–2026 年系统检索，产出 [docs/RELATED_WORK.md](RELATED_WORK.md)；同时将新核实的 10 篇文献补入 [paper/iscience/references.bib](../paper/iscience/references.bib) 并延续登记于 [paper/refcheck/verification_log.md](../paper/refcheck/verification_log.md)。
 
 ### 2026-11-18 · antigravity · `antigravity/S1.1b-moisture-buffer`（S1.1b 完成待审查）
 - **完成**：按 `docs/code_reviews/PR12_S1.1.md` 与 `docs/TASKS.md` S1.1b 要求完成湿缓冲容量重新标定与平滑近似偏差定量登记：
