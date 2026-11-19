@@ -30,10 +30,13 @@ envelope:
   thermal_mass_multiplier: 3.0  # Assumption: heavyweight historic masonry (~3x modern concrete/drywall effective mass)
   moisture_buffer_multiplier: 2.32 # Effective MBV ratio relative to modern baseline (1.16 / 0.50)
   effective_mbv_g_m2_rh: 1.16   # Rode et al. (2005) Table 3-5: untreated spruce boards 3-lab mean (1.16), Good class
+  oa_flow_per_person_m3_s: 0.0038  # ASHRAE Standard 62.1-2022 Table 6-1, Museums/galleries: R_p = 3.8 L/(s*person)
+  oa_flow_per_area_m3_s_m2: 0.0003 # ASHRAE Standard 62.1-2022 Table 6-1, Museums/galleries: R_a = 0.3 L/(s*m2)
 
 provenance:
   geometry_and_partitions: "src/museum/assets/5ZoneAutoDXVAV_multizone.epJSON (common 5-zone topology)"
   envelope_and_infiltration_tier: "assumption (uninsulated heavyweight historic masonry museum archetype)"
+  mechanical_ventilation: "ASHRAE Standard 62.1-2022 Table 6-1, Museums/galleries (R_p = 3.8 L/(s*person), R_a = 0.3 L/(s*m2))"
   hvac_efficiencies: "assumption (older/constrained heritage HVAC plant added to historic shell)"
   interzone_doorway_airflow: "assumption (symmetric open-portal air mixing)"
   thermal_capacitance: "assumption (3.0x thermal mass over modern baseline)"

@@ -82,6 +82,7 @@ from .rom import (
     load_building_tier,
     make_adiabatic_config,
     make_weak_buffer_config,
+    museum_operating_schedules,
     scale_moisture_buffer,
     with_smooth_betas,
 )
@@ -148,6 +149,7 @@ __all__ = [
     "load_objects_config",
     "make_adiabatic_config",
     "make_weak_buffer_config",
+    "museum_operating_schedules",
     "martens_t95_to_tau",
     "mechanical_strain_risk",
     "mechanical_strain_vjp_numpy",

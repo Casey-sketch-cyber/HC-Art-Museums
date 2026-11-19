@@ -255,6 +255,7 @@ def _naive_scalar_reference_rollout(
     solar: np.ndarray,
     occ: np.ndarray,
     inf_scale: np.ndarray,
+    m_vent: np.ndarray | None,
     t_heat_sp: float,
     t_cool_sp: float,
     rh_hum_sp: float,
@@ -267,6 +268,11 @@ def _naive_scalar_reference_rollout(
     c = cfg.constants
     hv = cfg.hvac
     dt = 3600.0
+
+    if m_vent is None:
+        m_vent_arr = occ[:, None] * rom.m_vent_person_design_np[None, :] + rom.m_vent_area_design_np[None, :]
+    else:
+        m_vent_arr = np.broadcast_to(np.asarray(m_vent, dtype=np.float64), (T_len, N))
 
     t_gnd = float(np.mean(t_out))
     t_a = np.full(N, 20.0)
@@ -304,7 +310,8 @@ def _naive_scalar_reference_rollout(
             m_v_k[i] = occ[k] * rom.design_people_np[i] * c.person_latent_kg_s
 
         m_inf = inf_scale[k] * rom.m_inf_design_np
-        h_inf = c.cp_air_j_kg_k * m_inf
+        m_oa = m_inf + m_vent_arr[k]
+        h_oa = c.cp_air_j_kg_k * m_oa
 
         # Solve explicit full (2N x 2N) thermal system directly without Schur pre-reduction formula
         A_T_full = np.zeros((2 * N, 2 * N))
@@ -314,14 +321,14 @@ def _naive_scalar_reference_rollout(
 
         for i in range(N):
             # Thermal air row
-            A_T_full[i, i] = rom.c_air_np[i] / dt + rom.h_ext_np[i] + h_inf[i] + rom.h_am_np[i]
+            A_T_full[i, i] = rom.c_air_np[i] / dt + rom.h_ext_np[i] + h_oa[i] + rom.h_am_np[i]
             A_T_full[i, N + i] = -rom.h_am_np[i]
             for j in range(N):
                 if i != j:
                     h_ij = rom.h_inter_total_np[i, j]
                     A_T_full[i, i] += h_ij
                     A_T_full[i, j] -= h_ij
-            b_T_full[i] = (rom.c_air_np[i] / dt) * t_a[i] + (rom.h_ext_np[i] + h_inf[i]) * t_out[k] + q_a_k[i]
+            b_T_full[i] = (rom.c_air_np[i] / dt) * t_a[i] + (rom.h_ext_np[i] + h_oa[i]) * t_out[k] + q_a_k[i]
 
             # Thermal mass row
             A_T_full[N + i, N + i] = rom.c_mass_np[i] / dt + rom.h_am_np[i] + rom.h_ground_np[i]
@@ -329,14 +336,14 @@ def _naive_scalar_reference_rollout(
             b_T_full[N + i] = (rom.c_mass_np[i] / dt) * t_m[i] + rom.h_ground_np[i] * t_gnd + q_m_k[i]
 
             # Water air row
-            A_W_full[i, i] = rom.m_air_np[i] / dt + m_inf[i] + rom.k_ab_np[i]
+            A_W_full[i, i] = rom.m_air_np[i] / dt + m_oa[i] + rom.k_ab_np[i]
             A_W_full[i, N + i] = -rom.k_ab_np[i]
             for j in range(N):
                 if i != j:
                     m_ij = rom.m_inter_air_np[i, j]
                     A_W_full[i, i] += m_ij
                     A_W_full[i, j] -= m_ij
-            b_W_full[i] = (rom.m_air_np[i] / dt) * w_a[i] + m_inf[i] * w_out_k + m_v_k[i]
+            b_W_full[i] = (rom.m_air_np[i] / dt) * w_a[i] + m_oa[i] * w_out_k + m_v_k[i]
 
             # Water buffer row
             A_W_full[N + i, N + i] = rom.m_buffer_np[i] / dt + rom.k_ab_np[i]
@@ -416,12 +423,13 @@ def _naive_scalar_reference_rollout(
 
 
 def test_naive_full_matrix_reference_loop_parity():
-    """Schur-reduced MuseumROM matches an unreduced 10x10 step-by-step scalar reference solver."""
+    """Schur-reduced MuseumROM matches unreduced 10x10 reference solver with both zero and ASHRAE 62.1 OA."""
     rom = MuseumROM(load_building_tier("retrofitted"))
     t_out, rh_out, solar, occ = _synthetic_year_forcing(n_hours=120, seed=7)
     rng = np.random.default_rng(7)
     inf_scale = 0.7 + 0.6 * rng.random(120)
 
+    # 1. Default ASHRAE 62.1 occupancy-coupled outdoor air ventilation (m_vent_kg_s=None)
     res = rom.forward(
         t_out_c=t_out,
         rh_out_percent=rh_out,
@@ -440,6 +448,7 @@ def test_naive_full_matrix_reference_loop_parity():
         solar=solar,
         occ=occ,
         inf_scale=inf_scale,
+        m_vent=None,
         t_heat_sp=19.5,
         t_cool_sp=23.5,
         rh_hum_sp=42.0,
@@ -449,6 +458,37 @@ def test_naive_full_matrix_reference_loop_parity():
     assert np.allclose(res["t_air_c"], ref_t, atol=1e-10, rtol=1e-10)
     assert np.allclose(res["w_air_kg_kg"], ref_w, atol=1e-12, rtol=1e-10)
     assert np.allclose(res["total_elec_kwh"], ref_e, atol=1e-10, rtol=1e-10)
+
+    # 2. Explicit zero ventilation (m_vent_kg_s=0.0) also matches zero-ventilation naive solver
+    res_zero = rom.forward(
+        t_out_c=t_out,
+        rh_out_percent=rh_out,
+        solar_rad_w_m2=solar,
+        occupancy_frac=occ,
+        infiltration_scale=inf_scale,
+        m_vent_kg_s=0.0,
+        t_heat_sp_c=19.5,
+        t_cool_sp_c=23.5,
+        rh_hum_sp_percent=42.0,
+        rh_dehum_sp_percent=56.0,
+    )
+    ref0_t, ref0_w, ref0_e = _naive_scalar_reference_rollout(
+        rom,
+        t_out=t_out,
+        rh_out=rh_out,
+        solar=solar,
+        occ=occ,
+        inf_scale=inf_scale,
+        m_vent=np.zeros((120, 5)),
+        t_heat_sp=19.5,
+        t_cool_sp=23.5,
+        rh_hum_sp=42.0,
+        rh_dehum_sp=56.0,
+    )
+    assert np.allclose(res_zero["t_air_c"], ref0_t, atol=1e-10, rtol=1e-10)
+    assert np.allclose(res_zero["w_air_kg_kg"], ref0_w, atol=1e-12, rtol=1e-10)
+    assert np.allclose(res_zero["total_elec_kwh"], ref0_e, atol=1e-10, rtol=1e-10)
+    assert float(np.sum(res["total_elec_kwh"])) != pytest.approx(float(np.sum(res_zero["total_elec_kwh"])))
 
 
 @pytest.mark.skipif(torch is None, reason="PyTorch not installed in this Python environment")

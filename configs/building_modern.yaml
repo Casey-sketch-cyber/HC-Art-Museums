@@ -29,10 +29,13 @@ envelope:
   thermal_mass_multiplier: 1.0  # Baseline modern concrete slab + gypsum partition thermal capacitance
   moisture_buffer_multiplier: 1.0 # Baseline interior painted gypsum/concrete MBV ratio (0.50 / 0.50)
   effective_mbv_g_m2_rh: 0.50   # Rode et al. (2005) Table 3-5 & 4-1: painted gypsum (0.64 raw) & concrete (0.38) composite
+  oa_flow_per_person_m3_s: 0.0038  # ASHRAE Standard 62.1-2022 Table 6-1, Museums/galleries: R_p = 3.8 L/(s*person)
+  oa_flow_per_area_m3_s_m2: 0.0003 # ASHRAE Standard 62.1-2022 Table 6-1, Museums/galleries: R_a = 0.3 L/(s*m2)
 
 provenance:
   geometry_and_epjson_u: "src/museum/assets/5ZoneAutoDXVAV_multizone.epJSON"
   envelope_and_infiltration_tier: "assumption (modern purpose-built museum archetype grounded in epJSON WALL-1/ROOF-1)"
+  mechanical_ventilation: "ASHRAE Standard 62.1-2022 Table 6-1, Museums/galleries (R_p = 3.8 L/(s*person), R_a = 0.3 L/(s*m2))"
   hvac_efficiencies: "assumption (typical air-cooled chiller COP + resistance reheat/steam humidifier)"
   interzone_doorway_airflow: "assumption (symmetric doorway air mixing across adjacent gallery-lobby boundaries)"
   thermal_capacitance: "assumption (representative concrete slab + gypsum interior thermal capacitance)"

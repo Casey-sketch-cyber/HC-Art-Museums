@@ -44,15 +44,16 @@ A 层模型沿用 [conservation.yaml](../configs/conservation.yaml) 与 B 层基
 ### 2.3 热平衡与水汽平衡 ODE
 
 $$\begin{aligned}
-C_{a,i}\frac{\mathrm{d}T_{a,i}}{\mathrm{d}t} &= (H_{\text{ext},i} + H_{\text{inf},i}(t))(T_{\text{out}}(t) - T_{a,i}) + H_{am,i}(T_{m,i} - T_{a,i}) - (L_T \mathbf{T}_a)_i + \dot{Q}_{a,i}(t) + \dot{Q}_{\text{hvac,sens},i} \\
+C_{a,i}\frac{\mathrm{d}T_{a,i}}{\mathrm{d}t} &= (H_{\text{ext},i} + H_{\text{inf},i}(t) + H_{\text{vent},i}(t))(T_{\text{out}}(t) - T_{a,i}) + H_{am,i}(T_{m,i} - T_{a,i}) - (L_T \mathbf{T}_a)_i + \dot{Q}_{a,i}(t) + \dot{Q}_{\text{hvac,sens},i} \\
 C_{m,i}\frac{\mathrm{d}T_{m,i}}{\mathrm{d}t} &= H_{am,i}(T_{a,i} - T_{m,i}) + H_{g,i}(T_g(t) - T_{m,i}) + \dot{Q}_{m,i}(t) \\
-M_{a,i}\frac{\mathrm{d}W_{a,i}}{\mathrm{d}t} &= \dot{m}_{\text{inf},i}(t)(W_{\text{out}}(t) - W_{a,i}) + K_{ab,i}(W_{b,i} - W_{a,i}) - (L_W \mathbf{W}_a)_i + \dot{m}_{\text{int},i}(t) + \dot{m}_{\text{hvac},i} \\
+M_{a,i}\frac{\mathrm{d}W_{a,i}}{\mathrm{d}t} &= (\dot{m}_{\text{inf},i}(t) + \dot{m}_{\text{vent},i}(t))(W_{\text{out}}(t) - W_{a,i}) + K_{ab,i}(W_{b,i} - W_{a,i}) - (L_W \mathbf{W}_a)_i + \dot{m}_{\text{int},i}(t) + \dot{m}_{\text{hvac},i} \\
 M_{b,i}\frac{\mathrm{d}W_{b,i}}{\mathrm{d}t} &= K_{ab,i}(W_{a,i} - W_{b,i})
 \end{aligned}$$
 
 其中：
 - $H_{\text{ext},i} = U_{\text{wall}} A_{\text{wall},i} + U_{\text{roof}} A_{\text{roof},i} + U_{\text{win}} A_{\text{win},i}$；
 - $H_{\text{inf},i}(t) = c_{p,a}\dot{m}_{\text{inf},i}(t)$，$\dot{m}_{\text{inf},i}(t) = \rho_0 V_i \cdot \mathrm{ACH}_{\text{inf}} \cdot s_{\text{inf}}(t) / 3600$；
+- $H_{\text{vent},i}(t) = c_{p,a}\dot{m}_{\text{vent},i}(t)$ 为机械新风显热换热项；未显式传入 `m_vent_kg_s` 时，按 ASHRAE Standard 62.1-2022 Table 6-1 *Museums/galleries* 需求控制新风 $\dot{m}_{\text{vent},i}(t) = \rho_0\big(R_p N_{\text{occ},i}(t) + R_a A_{\text{floor},i}\big)$（默认 $R_p = 3.8\;\text{L}/(\text{s}\cdot\text{person})$，$R_a = 0.3\;\text{L}/(\text{s}\cdot\text{m}^2)$，与 B 层 `DesignSpecification:OutdoorAir` 及 `OccupancySchedule` 联动完全对齐）；
 - 太阳辐射得热 $\dot{Q}_{\text{sol},i} = I_{\text{sol},i}(t) A_{\text{win},i} \cdot \mathrm{SHGC} \cdot w_{\text{sol},i}$ 按 `solar_to_air_fraction` 分配至空气与蓄热节点；照明、设备与人员显热按 `internal_rad_fraction` 分配，人员散湿进空气水汽节点。
 
 ### 2.4 Schur 消元后向欧拉数值积分（守恒性与可微性）
@@ -112,6 +113,7 @@ M_{b,i}\frac{\mathrm{d}W_{b,i}}{\mathrm{d}t} &= K_{ab,i}(W_{a,i} - W_{b,i})
 | $U_{\text{inter}}$ $[\text{W}/(\text{m}^2\cdot\text{K})]$ | 1.30 | 1.45 | 1.624 | `modern` 按 `epJSON` `INT-WALL-1`（`GP02+AL21+GP02+0.26`）精确折算；砖石内隔墙为**假设值** |
 | 门窗 $\mathrm{SHGC}$ | 0.76 | 0.55 | 0.68 | `modern` 对标 `epJSON` 清晰玻/灰玻混合透射特性；余两档为**假设值** |
 | 设计渗透率 $\mathrm{ACH}_{\text{inf}}$ $[1/\text{h}]$ | 1.00 | 0.45 | 0.22 | 历史漏风砖石、气密改造与现代密封展厅分级**假设值**（将在 S4.4 敏感性分析覆盖） |
+| 机械新风定额 ($R_p$ / $R_a$) | 3.8 L/(s·人) + 0.3 L/(s·m²) | 同左 | 同左 | ASHRAE Standard 62.1-2022 Table 6-1 *Museums/galleries* 标准新风定额（随客流日程联动） |
 | 区际门洞混风 $\mathrm{ACH}_{\text{inter}}$ $[1/\text{h}]$ | 0.60 | 0.45 | 0.35 | 相邻展厅与大厅门洞空气交流对称混合**假设值** |
 | 蓄热倍数 / $C_{m,i}$ $[10^7\text{ J/K}]$ | 3.0x (`2.46–9.90`) | 1.8x (`1.48–5.94`) | 1.0x (`0.82–3.30`) | 重质砖石（3 倍）、轻质现代石膏+混凝土板楼面（1 倍）蓄热体量分级**假设值** |
 | 吸湿缓冲容量 $M_{b,i}$ $[\text{kg}_{da}]$ / $\tau_b$ | **2.32x** (`1427.0–4147.4 kg`, `MBV=1.16`) / 8.0 h | **1.52x** (`935.0–2717.3 kg`, `MBV=0.76`) / 8.0 h | **1.00x** (`615.1–1787.7 kg`, `MBV=0.50`) / 8.0 h | 按 NORDTEST 定义与材料实测均值推导（Rode 等 2005 *BYG·DTU R-126* Sec. 3.3 p. 28、Table 3-5 p. 31、Table 4-1 p. 38）；原 S1.1 弱缓冲取值保留作 S4.4 下限敏感性参数 |
@@ -128,6 +130,8 @@ $$A_{\text{eff},i} = A_{\text{wall,opaque},i} + \sum_{j \sim i} A_{\text{inter},
 五区几何 $A_{\text{eff},i}$ 依次为 `SPACE1-1 = 231.11 m²`、`SPACE2-1 = 113.99 m²`、`SPACE3-1 = 229.03 m²`、`SPACE4-1 = 113.99 m²`、`SPACE5-1 = 331.29 m²`。在 $20\,^\circ\text{C}$、$50\%\mathrm{RH}$ 基准条件下，由含湿量偏导 $\kappa_W = \partial W/\partial(\mathrm{RH}_{\%})|_{20^\circ\text{C},50\%} = 1.4659\times 10^{-4}\;\text{kg}_v/(\text{kg}_{da}\cdot\%\mathrm{RH})$，令一阶缓冲节点在特征时间常数 $\tau_b = 8.0\text{ h}$（匹配 NORDTEST 8 h 吸湿半周期）内的响应蓄水量等于 $A_{\text{eff},i}\cdot\mathrm{MBV}_{\text{eff}}\cdot\Delta\mathrm{RH}$：
 
 $$M_{b,i} = \frac{A_{\text{eff},i}\cdot \mathrm{MBV}_{\text{eff}}\cdot 10^{-3}}{(1 - e^{-8/\tau_b})\cdot \kappa_W}\;[\text{kg}_{da}]$$
+
+注：上式采用一次 8 h 从平衡态出发的解析阶跃响应因子 $(1 - e^{-8/\tau_b})$ 标定 $M_{b,i}$，作为 NORDTEST 标准 8 h / 16 h 周期稳态循环峰谷响应的解析简化近似（在周期稳态下同一 $\tau_b=8\text{ h}$ 一阶节点受前序 16 h 半脱湿衰减影响，标称滞后略强，本文按任务规定固定此标定值不在 S1.3 辨识调参）。
 
 三档有效 $\mathrm{MBV}_{\text{eff}}$ 对应 Rode 等（2005）Table 3-5（p. 31 多实验室 Round Robin 实测均值）与 Table 4-1（p. 38 分级）：
 
@@ -159,3 +163,54 @@ $$M_{b,i} = \frac{A_{\text{eff},i}\cdot \mathrm{MBV}_{\text{eff}}\cdot 10^{-3}}{
   2. **平滑参数 `smooth_beta_t = 8.0, smooth_beta_w = 8000` 相对近硬切换 `(200, 2e5)` 偏差**：
      - 全年总电耗平滑正偏置极小：`modern +0.70%`、`retrofitted +0.61%`、`historic +0.30%`；
      - 显热、冷盘管与再热分项平滑偏置在 `+0.13%` 至 `+1.94%` 之间；加湿分项在极小量级的 `modern`（年加湿仅 `591 kWh`）因绝对偏置分母小呈 `+8.93%`（仅 `+52.9 kWh`，占总电耗 `< 0.16%`），在 `retrofitted` / `historic` 分别为 `+2.04%` / `+0.77%`。遵循 `PLAN_ISCIENCE.md` 第 5.7 节约定：梯度训练可用平滑版，论文报告能耗与节能幅度统一采用近硬切换参数（`with_smooth_betas(..., 200.0, 200000.0)`）复算或双列报告。
+
+---
+
+## 6. B 层 EnergyPlus 博物馆模型（Task S1.2）
+
+> 实现文件：[src/museum_v2/eplus/build_model.py](../src/museum_v2/eplus/build_model.py)、[src/museum_v2/eplus/runner.py](../src/museum_v2/eplus/runner.py)、[scripts/v2/run_eplus_f0.py](../scripts/v2/run_eplus_f0.py)；测试：[tests/test_eplus_model.py](../tests/test_eplus_model.py)。
+
+### 6.1 从 VAV 集中风系统重构为独立分区理想负荷
+
+1. **移除集中风环路与青铜区不可行源**：清除原始 `5ZoneAutoDXVAV_multizone.epJSON` 中的中央 `AirLoopHVAC`、主盘管、中央 `Humidifier:Steam:Electric` 及集中 VAV 末端，消除以往只能靠核心区单一加湿器带动全楼导致的湿度控制耦合冲突。
+2. **五区独立 `ZoneHVAC:IdealLoadsAirSystem`**：`SPACE1-1` 至 `SPACE5-1` 每区各自配置独立的 `ZoneHVAC:IdealLoadsAirSystem`、`ThermostatSetpoint:DualSetpoint`（分别设加热/供冷设定点）与 `ZoneControl:Humidistat`（分别设 `humidifying_relative_humidity_setpoint_schedule_name` 与 `dehumidifying_relative_humidity_setpoint_schedule_name`）。送风限制放宽至 `T_sup ∈ [13, 50] °C`、`W_sup ∈ [0.002, 0.025] kg/kg`，`heating_limit = NoLimit`、`cooling_limit = NoLimit`，以输出物理基准所需的逐时真实显热供热、显热供冷、加湿潜热与除湿潜热负荷（`eplusout.csv` 小时输出）。
+
+### 6.2 湿缓冲对齐（`ZoneCapacitanceMultiplier:ResearchSpecial`）与三档围护、时间表
+
+为与 A 层 S1.1b 按 NORDTEST MBV（Rode 等 2005 *BYG·DTU R-126*）标定的总房湿容 $M_{a,i} + M_{b,i}$ 保持严格一致，B 层为五个展厅注入 `ZoneCapacitanceMultiplier:ResearchSpecial`，按 $\text{humidity\_capacity\_multiplier}_i = 1 + M_{b,i}/(\rho_0 V_i)$ 取值（感热仍由 EnergyPlus `ConductionTransferFunction` 墙体楼板解析传递，`temperature_capacity_multiplier = 1.0`）：
+
+| 分区 | 空气干质量 $M_a$ [kg] | `modern` 湿容倍数 | `retrofitted` 湿容倍数 | `historic` 湿容倍数 |
+|---|---|---|---|---|
+| `SPACE1-1` | 288.08 | `5.3290` | `7.5801` | `11.0430` |
+| `SPACE2-1` | 124.40 | `5.9446` | `8.5162` | `12.4713` |
+| `SPACE3-1` | 288.08 | `5.2901` | `7.5208` | `10.9528` |
+| `SPACE4-1` | 124.40 | `5.9446` | `8.5162` | `12.4713` |
+| `SPACE5-1` | 539.05 | `4.3164` | `6.0409` | `8.6939` |
+
+其余 B 层构件参数与 A 层三档 `configs/building_{tier}.yaml` 单一数据源同步：
+- **围护构造与门窗**：`modern` 沿用 `epJSON` 原 `WALL-1` / `ROOF-1` / `INT-WALL-1`；`retrofitted` 采用 240 mm 砖砌体 + 矿棉内保温（按目标 `U_wall=0.85, U_roof=0.55` 反算热阻）；`historic` 采用 400 mm 实心砖石墙与木屋架（匹配 `U_wall=1.80, U_roof=1.35`）。全三档窗及玻璃门均采用 `WindowMaterial:SimpleGlazingSystem` 对齐三档 `(U_window, SHGC)`。
+- **区际门洞混风**：按 `interzone_air_exchange_ach`（`0.35 / 0.45 / 0.60 1/h`）对 8 组相邻边界加入 16 条双向对称 `ZoneMixing` 气流。
+- **渗透、新风与博物馆开放时间表**：修正原模板 `INFIL-SCH` 4–10 月渗透率为零的失真，全年按 `constant_term_coefficient = 1.0` 执行 `infiltration_ach_design`；将原"工作日办公、周末闭馆"时间表替换为**博物馆开放制度**（周二至周日 `09:00–17:00` 开放、周一闭馆仅留 `5%` 值守人员与 `25%` 基础照明），并通过 `DesignSpecification:OutdoorAir`（换用 ASHRAE Standard 62.1-2022 Table 6-1 *Museums/galleries* 馆舍标准：`R_p = 3.8 L/(s·person)`、`R_a = 0.3 L/(s·m²)`，替代原模板中的办公室 `0.00944 m³/(s·person) + 0.0005 m³/(s·m²)`）与 `demand_controlled_ventilation_type = OccupancySchedule` 使新风随客流实时联动。A 层默认采用完全同步的 `museum_operating_schedules` 与同等 ASHRAE 62.1-2022 新风强迫。
+
+### 6.3 B 层 F0（`21 °C / 50% RH`）全年仿真验证（EnergyPlus 23.2.0-7636e6b3e9）
+
+使用 `USA_NY_New.York-J.F.Kennedy.Intl.AP.744860_TMY3.epw` 对三档建筑执行全年 8760 h 运行（详见 [results_summary/S1.2/summary.md](../results_summary/S1.2/summary.md) 与 [results_summary/S1.2/f0_verification.json](../results_summary/S1.2/f0_verification.json)）：
+- 三档 **0 Severe / 0 Fatal 报错**，全部 5 个展厅 `21±1 °C` 达标率均 **`100.00%`**，`50±5 %RH` 达标率均 **`99.52%–100.00%`**（显著高于 `>= 95%` 验收标准）。实测仅 `modern` 核心区 `SPACE5-1` 出现 `42` 小时轻微低湿偏移（最低 `44.33 %RH`，发生于第 `736` 小时），出现在高客流新风（平均 `0.144 kg/s`，相对全年均值 `0.044 kg/s` 超过 3 倍）与较低室内显热负荷叠加时、`IdealLoads` 送风温湿限约束下的瞬态不足，占比 `< 0.5%`。
+- **双口径全年分项负荷**（同步输出含新风 `Supply Air` 口径与不含新风 `Zone` 口径，三档均严格保持 `modern < retrofitted < historic` 供热/加湿递增物理排序）：
+  - **含新风总系统负荷（`Zone Ideal Loads Supply Air ... Energy`，与 A 层含 `m_vent` 总负荷直接对应）**：`modern / retrofitted / historic` 显热供热分别为 `26,414 / 34,862 / 72,014 kWh`、显热供冷为 `39,858 / 35,338 / 40,649 kWh`、加湿潜热为 `13,301 / 17,973 / 29,143 kWh`、除湿潜热为 `13,870 / 17,293 / 25,510 kWh`。
+  - **不含新风纯室内负荷（`Zone Ideal Loads Zone ... Energy`，扣除新风负荷后仅反映围护+内扰+渗透）**：`modern / retrofitted / historic` 显热供热分别为 `15,793 / 21,970 / 56,434 kWh`、显热供冷为 `44,487 / 37,663 / 40,220 kWh`、加湿潜热为 `3,366 / 7,354 / 18,165 kWh`、除湿潜热为 `5,825 / 8,636 / 16,581 kWh`（可见在气密现代馆 `modern` 中，新风负荷占总加湿需求的约 `74.7%`）。
+- 独立分区控制验证：在 `SPACE1-1` 放宽至 `[18–25 °C, 35–65% RH]`、`SPACE2-1/5-1` 收紧至 `[21.5–22 °C, 48–52% RH]` 时，`SPACE1-1` 与 `SPACE2-1` 的逐时温湿度标准差比大于 `1.5×`，确认各区双设定点恒温与双限湿度控制互不干扰。
+
+### 6.4 A、B 两层的结构差别与口径对齐关系
+
+为保证 S1.3 一致性检验与后续 S3 控制器评价可解释、不混淆物理偏差，明确 A 层（可微降阶模型 `MuseumROM`）与 B 层（EnergyPlus 23.2 全物理模型）的 4 项关键结构差别如下：
+
+1. **湿缓冲动态机制（$\tau_b = 8\text{ h}$ 滞后节点 vs $\tau_b \to 0$ 瞬时平衡）**：
+   A 层采用独立非平衡吸湿节点 $W_{b,i}$ 配特征交换时间常数 $\tau_b = 8.0\text{ h}$，空气与墙面在小时尺度存在吸放湿传质阻力；B 层在保持 `Model = IdealLoads` 可靠运行下，通过 `ZoneCapacitanceMultiplier:ResearchSpecial` 放大分区有效湿容 $M_{a,i} + M_{b,i}$，相当于 $\tau_b \to 0$ 极限（空气水汽与缓冲层瞬时等含湿量平衡）。两者总湿容量相等，但高频阶跃下的瞬态阻尼速率会存在结构差异。
+2. **机械新风强迫与负荷输出口径映射**：
+   两层共用同一套 `configs/building_{tier}.yaml` 配置、ASHRAE Standard 62.1-2022 Table 6-1 博物馆新风定额与周二至周日开放时间表。A 层输出的全负荷同时包含围护、渗透及机械新风 $\dot{m}_{\text{vent},i}(t)$ 的显潜处理，**直接对应 B 层的 `Zone Ideal Loads Supply Air Sensible/Latent Heating/Cooling Energy`**；B 层另行记录的 `Zone Ideal Loads Zone ... Energy` 则可用于分离围护传热与新风负载的各自误差贡献（如需与不含新风情境对比，可在 A 层传参 `m_vent_kg_s=0.0`）。
+3. **围护瞬态导热、辐射与地表边界**：
+   A 层使用集中围护传热 $U_{\text{wall/roof/win}} A$、单一短波透射比 $\mathrm{SHGC}$ 与集中太阳空气/蓄热分配比 `solar_to_air_fraction`、以及年均附近单一地温耦合 $U_{\text{ground}}$；B 层采用多层构造 `ConductionTransferFunction`（CTF）解析热延迟、逐窗朝向太阳角度透过与内表面长波辐射互换、`WindowMaterial:SimpleGlazingSystem` 以及 `Site:GroundTemperature:BuildingSurface` 逐月地面边界。
+4. **空气处理过程（盘管露点除湿+再热 vs 理想加减湿送风）**：
+   B 层 `ZoneHVAC:IdealLoadsAirSystem` 在给定送风温湿限下独立提供所需的净加湿/净除湿与净显热负荷（不含冷水盘管过度降温引起的再热惩罚）；A 层除计算房间净显潜平衡外，还显式构建了固定盘管露点 $T_{\text{coil}}$ 的过冷除湿-再热耦合能耗模型，从而把物理负荷进一步映射为可供终端能耗与碳排优化使用的空调电耗分项。
+
