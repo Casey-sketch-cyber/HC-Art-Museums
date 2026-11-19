@@ -123,7 +123,7 @@
 | 87 | `kramer2025dynamic` | S5.1 系统检索（PR #15 补录）：DYSECO 动态气候实装多年节能评估 | `10.1007/978-3-031-85655-6_4` | CrossRef API + Springer 章节页与摘要核对 | 2026-11-19 | **新增已核实**（Kramer, Martens, Neuhaus, *Collection Care*, Springer Proc. Archaeol. Heritage, pp. 35–43, 2025） |
 | 88 | `kazambayev2026archival` | S5.1 系统检索（PR #15 补录）：智能档案盒主被动微环境控制 | `10.3390/app162010100` | CrossRef API 直接解析 + 摘要核对 | 2026-11-19 | **新增已核实**（Kazambayev 等 8 人, *Applied Sciences* 16(20):10100, 2026） |
 | 89 | `shi2026substrate` | S5.1 系统检索（PR #15 补录）：博物馆展柜木基被动调湿显色基材 | `10.1038/s40494-026-03116-z` | CrossRef API + Nature 出版页与摘要核对 | 2026-11-19 | **新增已核实**（Shi, He, Cui, Zeng, *npj Heritage Science*, 2026-11-14 在线发表，卷期/文章号待定故以 `@misc` 收录） |
-| 90 | `ravajiri2026dpc` | S5.1 跟踪（PR #15 补录）：Drgoňa 等雨流退化端到端混合整数 DPC | `10.1109/TSG.2026.3737375` / `arXiv:2609.12968` | CrossRef API + arXiv API 双方核对 | 2026-11-19 | **新增已核实**（Ravajiri, Drgoňa, Mehrtash, Hobbs, *IEEE Trans. Smart Grid* Early Access, pp. 1–1, 2026） |
+| 90 | `ravajiri2026dpc` | S5.1 跟踪（PR #15 补录）：Drgoňa 等雨流退化端到端混合整数 DPC | `10.1109/TSG.2026.3737375` / `arXiv:2609.12968` | CrossRef API + arXiv API 双方核对 | 2026-11-19 | **新增已核实**（Ravajiri, Drgoňa, Mehrtash, Hobbs, *IEEE Trans. Smart Grid* Early Access, pp. 1–1, 2026）；**PR #15 审查注**：arXiv:2609.12968 审查者已核实存在、题名一致；IEEE TSG DOI `10.1109/TSG.2026.3737375` 与作者名单审查者未能独立核实，已从 bib 删除 DOI，引用前须在 IEEE Xplore 上确认 |
 | 91 | `xu2026e2edpc` | S5.1 系统检索（PR #15 补录）：建筑需求响应概率约束端到端 DPC | `arXiv:2603.22104` | arXiv API 元数据与摘要直接解析 | 2026-11-19 | **新增已核实**（Xu, Zhi, Zhao, Jiang, `arXiv:2603.22104`, 2026 预印本） |
 
 ---
