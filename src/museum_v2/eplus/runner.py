@@ -234,8 +234,13 @@ def run_energyplus_simulation(
         run_dir.mkdir(parents=True, exist_ok=True)
 
     try:
+        ep_to_write = dict(epjson_data)
+        extra_files = ep_to_write.pop("_museum_extra_files", None)
+        if isinstance(extra_files, dict):
+            for fname, content in extra_files.items():
+                (run_dir / fname).write_text(str(content), encoding="utf-8")
         in_epjson = run_dir / "in.epJSON"
-        in_epjson.write_text(json.dumps(epjson_data, indent=2), encoding="utf-8")
+        in_epjson.write_text(json.dumps(ep_to_write, indent=2), encoding="utf-8")
 
         cmd = [
             str(ep_bin),

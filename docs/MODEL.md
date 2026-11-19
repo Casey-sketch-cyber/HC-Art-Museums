@@ -214,3 +214,44 @@ $$M_{b,i} = \frac{A_{\text{eff},i}\cdot \mathrm{MBV}_{\text{eff}}\cdot 10^{-3}}{
 4. **空气处理过程（盘管露点除湿+再热 vs 理想加减湿送风）**：
    B 层 `ZoneHVAC:IdealLoadsAirSystem` 在给定送风温湿限下独立提供所需的净加湿/净除湿与净显热负荷（不含冷水盘管过度降温引起的再热惩罚）；A 层除计算房间净显潜平衡外，还显式构建了固定盘管露点 $T_{\text{coil}}$ 的过冷除湿-再热耦合能耗模型，从而把物理负荷进一步映射为可供终端能耗与碳排优化使用的空调电耗分项。
 
+---
+
+## 7. A、B 一致性辨识、物理对齐修正与跨气候盲测验证（Task S1.3）
+
+> 实现文件：[src/museum_v2/rom.py](../src/museum_v2/rom.py)、[src/museum_v2/weather.py](../src/museum_v2/weather.py)、[scripts/v2/identify_rom.py](../scripts/v2/identify_rom.py)；测试：[tests/test_identify_rom.py](../tests/test_identify_rom.py)；汇总与图表：[results_summary/S1.3/](../results_summary/S1.3/summary.md)。
+
+### 7.1 S1.3 发现并修复的四项物理与边界对齐问题
+
+1. **五区耦合互补控制求解（消除门洞混风耦合下的对角过冲）**：
+   原 A 层 `_apply_hvac_control_step` 对 `diag(inv_at)`、`diag(inv_aw)` 逐区独立求解控制量，在强门洞混风（`ZoneMixing`）与小体量边区（如 `SPACE2-1`）并存时，忽略邻区耦合传递会导致非零过除湿与过冷（如高湿热带气候 `RH RMSE` 偏大）。升级为五区联立互补系统 $(I + \operatorname{diag}(\mathbf{g})\,S)\,\mathbf{u} = \mathbf{g}\odot\mathbf{c}_{\text{eff}}\odot\mathbf{d}$（NumPy 与 PyTorch 共享等价求解），并配自定义时间并行精确离散伴随 `_MuseumRolloutFn`，使全年 8760 h × 5 区单核前向耗时维持 `3.52 s`（`< 5 s` 门禁）、反向耗时降至 `1.31 s`、有限差分梯度检验相对误差 `< 1e-3`。
+2. **显冷盘管顺带冷凝除湿（`t_sup_cool_min_c = 13.0 °C`）**：
+   B 层 `IdealLoads` 在 `minimum_cooling_supply_air_temperature = 13.0 °C`（对应饱和含湿量约 `9.35 g/kg`）约束下，即使室内相对湿度未触及 `Dehum` 设定点，显冷过程也会伴随表冷器结露去湿。A 层在 `HVACConfig` 新增 `t_sup_cool_min_c: float | None = 13.0` 计算顺带结露率 $\dot{m}_{\text{cond}}$，并按 B 层净口径将其潜热归入 `e_dehum_latent_kwh` 而不重复触发虚假显热再热。
+3. **几何朝向（`north_axis = 30.0°`）、南向挑檐遮阳与日程基准对齐**：
+   在 [src/museum_v2/weather.py](../src/museum_v2/weather.py) 中按 `5ZoneAutoDXVAV_multizone.epJSON` 实测几何构建五区垂直立面太阳辐照：计入 `Building.north_axis = 30.0°`、修正 `SPACE2-1`（`RIGHT-1`，`-60°` ESE）与 `SPACE4-1`（`LEFT-1`，`+120°` WNW）朝向及 `Main South Overhang`（1.3 m 挑檐）阴影衰减，并剔除向 A 层传入逐区辐照时对 `solar_weight` 的重复乘算。同时显式传入 `museum_operating_schedules(8760, start_day_of_week="Tuesday")` 对齐 `RunPeriod 1`（1991-01-01 为周二）、`epjson_ground_temperatures_hourly()` 逐月地温以及按台站实测大气压 `pressure_pa` 缩放空气密度 $\rho_{\text{site}}$。
+4. **B 层逐时自定义设定点接口（`Schedule:File`）**：
+   [src/museum_v2/eplus/build_model.py](../src/museum_v2/eplus/build_model.py) 与 [runner.py](../src/museum_v2/eplus/runner.py) 新增 `hourly_zone_setpoints` 支持，直接向 EnergyPlus 注入全年 8760 h 逐区设定点序列用于多工况辨识与随机扰动验证。
+
+### 7.2 参数辨识协议与严格约束
+
+- **仅在独立富激励训练集 `nyc / id_rich` 上辨识**：每档围护（`historic`、`retrofitted`、`modern`）独立辨识 `9` 个有效围护与热容参数（含柔和物理先验打破共线性），**严格锁定 S1.1b 标定湿缓冲质量 `m_buffer_kg` 与时间常数 `tau_buffer_h = 8.0 h` 不予拟合**。
+- **同源负荷口径**：A 层比较净负荷总和 `e_sens_heat_kwh + e_sens_cool_kwh + e_hum_kwh + e_dehum_latent_kwh`，严格对应 B 层 `Zone Ideal Loads Supply Air Total Heating + Total Cooling Energy`，不使用 A 层末端电耗比较。
+
+| 档位 | `u_wall` [W/m²K] | `u_roof` [W/m²K] | `u_window` [W/m²K] | `u_ground` [W/m²K] | `window_shgc` | `solar_to_air` | `internal_rad` | `c_mass_scale` | `h_am_scale` |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| `historic` | `1.155` | `0.372` | `5.742` | `1.282` | `0.690` | `0.400` | `0.455` | `0.578` | `0.875` |
+| `retrofitted` | `0.747` | `0.251` | `2.172` | `1.525` | `0.443` | `0.671` | `0.401` | `0.770` | `0.982` |
+| `modern` | `0.406` | `0.127` | `2.769` | `2.061` | `0.514` | `0.632` | `0.369` | `0.302` | `1.111` |
+
+注：`u_ground` 辨识值（`1.28–2.06 W/(m²·K)`）合理反映了 `FLOOR-SLAB-1` 多层混凝土板的真实传热导率（约 `1.63 W/(m²·K)`）。
+
+### 7.3 跨气候、跨围护、跨未知序列盲测结果
+
+在 3 个未用于辨识的气候（`tampa` 湿热 `Cfa`、`chicago` 严寒大陆 `Dfa`、`golden` 高原半干旱 `BSk`，`patm ≈ 82.1 kPa`）× 3 档围护 × 3 组未见控制序列（`F0` 恒定、`wide_deadband` `18–25 °C / 40–65% RH`、`random_perturb` 分区伪随机扰动）共计 **27 组盲测**（外加 `nyc` 9 组保持集验证，合计 **36 / 36 全部通过**）上：
+
+- **27 / 27 盲测算例全部满足 S1.3 四项验收门槛**（[results_summary/S1.3/summary.md](../results_summary/S1.3/summary.md)）：
+  - 逐时总负荷 **CV-RMSE ≤ 30%**：盲测范围 **`9.36% – 29.88%`**（`F0` `9.36%–15.78%`；`random_perturb` `13.79%–21.04%`；`wide_deadband` 最高为 `golden/retrofitted` `29.88%`）；
+  - 逐时总负荷 **|NMBE| ≤ 10%** 与全年总负荷相对偏差 **≤ 10%**：盲测范围 **`-9.13% – +4.58%`**；
+  - 室内 RH 逐时 **RMSE ≤ 5% RH**：盲测全区间 **`0.01% – 3.95% RH`**（`F0` `0.01%–0.52% RH`；`random_perturb` `1.60%–2.27% RH`；`wide_deadband` 最高为高湿 `tampa/modern` `3.95% RH`）；
+  - 室内温度逐时 **RMSE**：`F0` 为 **`0.00 °C`**，浮动工况为 **`0.23 – 0.52 °C`**。
+
+

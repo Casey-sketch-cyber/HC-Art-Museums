@@ -102,6 +102,29 @@ def test_per_zone_independent_setpoints_in_epjson():
     assert ep["Schedule:Compact"]["Dehum-SetP-Sch-5"]["data"][-1] == {"field": 52.0}
 
 
+def test_hourly_zone_setpoints_schedule_file_schema(tmp_path: Path):
+    """hourly_zone_setpoints emits Schedule:File objects + CSV and strips metadata on write."""
+    n = 8760
+    t_h = np.full(n, 19.5)
+    t_c = np.full(n, 23.0)
+    rh_h = np.full(n, 42.0)
+    rh_d = np.full(n, 58.0)
+    t_h[10] = 20.5
+    out_epjson = tmp_path / "museum_hourly.epJSON"
+    ep = build_museum_epjson(
+        tier="modern",
+        hourly_zone_setpoints={"SPACE1-1": (t_h, t_c, rh_h, rh_d)},
+        output_path=out_epjson,
+    )
+    assert "Htg-SetP-Sch-1" in ep["Schedule:File"]
+    assert "Htg-SetP-Sch-1" not in ep["Schedule:Compact"]
+    assert ep["Schedule:File"]["Htg-SetP-Sch-1"]["file_name"] == "setpoints_schedule.csv"
+    assert ep["Schedule:File"]["Htg-SetP-Sch-1"]["column_number"] == 1
+    assert (tmp_path / "setpoints_schedule.csv").is_file()
+    saved_text = out_epjson.read_text(encoding="utf-8")
+    assert "_museum_extra_files" not in saved_text
+
+
 @pytest.mark.skipif(not _eplus_ready(), reason="EnergyPlus 23.2 binary or EPW file not present")
 def test_energyplus_live_f0_and_per_zone_differentiation():
     """Live EnergyPlus 23.2 simulation: F0 holds >=95% hours within 21+-1 C / 50+-5 %RH and zones decouple."""

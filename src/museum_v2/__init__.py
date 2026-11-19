@@ -86,6 +86,12 @@ from .rom import (
     scale_moisture_buffer,
     with_smooth_betas,
 )
+from .weather import (
+    EPWData,
+    compute_facade_irradiance,
+    epjson_ground_temperatures_hourly,
+    parse_epw,
+)
 
 __all__ = [
     "ACTIVATION_ENERGY_PAPER_J_MOL",
@@ -97,6 +103,7 @@ __all__ = [
     "ChemicalRiskResult",
     "DEFAULT_CONFIG_DIR",
     "DEFAULT_OBJECTS_CONFIG",
+    "EPWData",
     "EnvelopeConfig",
     "GAS_CONSTANT_J_MOL_K",
     "GAS_RATIO_MW_MA",
@@ -134,8 +141,10 @@ __all__ = [
     "chemical_lifetime_multiplier",
     "chemical_lifetime_multiplier_grad_numpy",
     "compute_all_object_responses",
+    "compute_facade_irradiance",
     "compute_object_response",
     "dew_point_from_w",
+    "epjson_ground_temperatures_hourly",
     "estimate_proofed_envelope",
     "first_order_lowpass",
     "first_order_lowpass_vjp",
@@ -158,6 +167,7 @@ __all__ = [
     "moist_air_density_kg_m3",
     "moist_air_enthalpy_j_per_kg",
     "mould_germination_rate",
+    "parse_epw",
     "proofed_fluctuation_risk",
     "rh_from_temp_w",
     "saturation_vapor_pressure",
