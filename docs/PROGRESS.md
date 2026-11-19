@@ -4,7 +4,7 @@
 
 ## 当前状态
 
-项目正在按 `docs/PLAN_ISCIENCE.md` 重做，目标期刊 iScience。旧稿已归档，不再修改。S0.1、S0.2、S0.3、S1.1、S2.1、S2.2、S2.3、S2.4、S5.2 已完成；S1.1 留下一张后续卡 S1.1b（湿缓冲重新标定）；其余任务见 `docs/TASKS.md`。
+项目正在按 `docs/PLAN_ISCIENCE.md` 重做，目标期刊 iScience。旧稿已归档，不再修改。S0.1、S0.2、S0.3、S1.1、S1.1b、S2.1、S2.2、S2.3、S2.4、S5.2 已完成；S1.2（PR #14）和 S5.1（PR #15）被退回待修改；其余任务见 `docs/TASKS.md`。
 
 旧代码和旧稿在 `/mnt/e/lzt/guangxi`。mock 与多区域实验的输出在 `results/` 和 `logs/`，不上传。
 
@@ -18,12 +18,11 @@ antigravity 按下面的顺序做：
 
 | 顺序 | 任务 | 说明 |
 |---|---|---|
-| ~~1~~ | ~~S1.1 A 层可微降阶模型~~ | 已完成（PR #12 合并） |
-| 1 | **S1.1b 湿缓冲容量重新标定** | 见 `docs/code_reviews/PR12_S1.1.md` 的"必须做"两项。工作量小，先做 |
-| 2 | S1.2 EnergyPlus 博物馆模型 | 先在计算主机装好 EnergyPlus 23.2（`setup.sh`），装环境的过程和版本写进本文件。**B 层要开湿缓冲**（EMPD 或湿容倍数），取值与 S1.1b 一致 |
-| 3 | S1.3 A、B 一致性验证 | 依赖 S1.1b、S1.2 都审查通过。达不到验收标准就停下报告 |
-| 4 | S5.1 相关工作核实与定位 | S1.2 卡在装环境时，可以先做这一项 |
-| 5 | S3.1 起的后续任务 | 按 `docs/TASKS.md` 依赖顺序。**S3.4 关口 G1 出结果后必须停下，等用户选路线** |
+| ~~—~~ | ~~S1.1、S1.1b~~ | 已完成（PR #12、#13 合并） |
+| 1 | **改 PR #14（S1.2）** | 被退回，见 `docs/code_reviews/PR14_S1.2.md`：新风量换成 ASHRAE 62.1 博物馆取值并注明出处；**A 层加新风强迫项**；输出不含新风的负荷；`MODEL.md` 写 A、B 结构差别。先把 main 合进分支 |
+| 2 | **改 PR #15（S5.1）** | 被退回，见 `docs/code_reviews/PR15_S5.1.md`：重写 Guo 2023 的描述；正文里没进 bib 的 5 条文献要么补齐核实、要么删掉；同步改 `PLAN_ISCIENCE.md` 第 4 节 |
+| 3 | S1.3 A、B 一致性验证 | 依赖 S1.2 审查通过。湿缓冲参数固定、不辨识（见任务卡）。达不到验收标准就停下报告 |
+| 4 | S3.1 起的后续任务 | 按 `docs/TASKS.md` 依赖顺序。**S3.4 关口 G1 出结果后必须停下，等用户选路线** |
 
 **S1.1 审查要点**（审查者事先说明，按这些验收）：
 1. 湿度以**含湿量**为状态量，RH 由温度和含湿量算出；不要像旧 `MockMuseumEnv` 那样直接对 RH 做一阶响应。
@@ -52,13 +51,27 @@ antigravity 按下面的顺序做：
 
 ## 工作记录
 
-### 2026-11-18 · antigravity · `antigravity/S5.1-related-work`（S5.1 完成待审查）
-- **完成**：逐条核实 `docs/PLAN_ISCIENCE.md` 第 4 节表全部 7 条研究线并完成 2023–2026 年系统检索，产出 [docs/RELATED_WORK.md](RELATED_WORK.md)；同时将新核实的 10 篇文献补入 [paper/iscience/references.bib](../paper/iscience/references.bib) 并延续登记于 [paper/refcheck/verification_log.md](../paper/refcheck/verification_log.md)（共 85 条）。
-- **重要原文核查发现与纠偏（须同步给审稿与写稿流程）**：
-  1. **纠偏 `Bi 等 2025`（`green_smart_museums_2025`, `10.3390/smartcities8050140`）**：`PLAN_ISCIENCE.md` 第 4 节表原将该文标为 `Bi 等 2025（DQN，软惩罚）`，对照原文 CrossRef/DOAJ 摘要与关键词后确认：**该文实为“数字孪生 + AI + 绿色能源”三元协同管理架构与三座中国博物馆宏观案例实证，并未使用 DQN 与软惩罚逐时控制算法**。而真正将无模型 DRL 应用于博物馆恒温恒湿空调（CTHA）分布式风口湿度调控的是系统检索补入的 **Guo 等 2023**（`guo2023drl`, *Applied Intelligence* 53(13):16724–16746, `10.1007/s10489-022-04320-7`）；两者均未嵌入藏品多层时间常数与四类损伤模型约束。
-  2. **补全“Sci Total Environ 2024 全球遗产气候制图”出处**：确认为 **Grau-Bové, Orr, Thomas & Andrews (2025; 2024 年 SSRN 预印及 DOI 定稿)**, *Using damage functions to map heritage climatology at a global scale*, *Science of The Total Environment* 963:178350（`graubove2025global`, `10.1016/j.scitotenv.2024.178350`）。该文使用 1991–2020 粗网格全球室外气象评估损伤，明确警示欧美标定损伤函数外推热带的风险，且不含建筑与 HVAC 控制。
-  3. **精化 `Schito 等 2018/2020` 表述**：2020 年文献明确纳入了夏季纸质展厅 AHU 设定与换气率多目标寻优，区分度应写清为“单馆、单季、单类藏品的设计期离线 Pareto/achievement 寻优，缺乏跨气候/跨围护/多藏品体系及闭环反馈对比”。
-- **高重合度检索结论**：跨 CrossRef（含全库及 9 种领域期刊 ISSN 过滤）、arXiv、DOAJ 与 PubMed 检索 2023–2026 年文献，**未发现**在“多区可微湿热与 MBV 湿缓冲 ROM + EnergyPlus 复算 + 多藏品四机理损伤可行域约束控制/反演 + 跨气候/跨围护前沿（F0–F6）”上与本方案高度重合的工作。
+### 2026-11-19 · antigravity · `antigravity/S5.1-related-work`（按 PR #15 审查意见完成修改并重交）
+- **合并 `main`**：已将 `main`（含 `PR #13 S1.1b` 与审查文档 `PR13/14/15`）并入本分支，合理合并 `references.bib`（保留 `rode2005moisture` 为第 76 条，S5.1 续录为第 77–91 条，总计 **91 条**）、`verification_log.md`、`TASKS.md` 与 `PROGRESS.md` 冲突。
+- **按 [docs/code_reviews/PR15_S5.1.md](code_reviews/PR15_S5.1.md) 完成全部 3 项必改**：
+  1. **核实并重写 `Guo et al. (2023)`（`guo2023drl`, *Applied Intelligence* 53(13):16724–16746）**：对照 Springer 出版页与原文摘要逐句重写 [docs/RELATED_WORK.md](RELATED_WORK.md) 第二节与第 3.2 节表——删去误写的“CFD + 调风口”描述（原文未用 CFD），明确研究对象为**分布式恒湿机组**，算法为无模型 DRL **`RH-rainbow`**，**状态**为分布式环境传感器参数，**动作**为各恒湿机的**湿度设定点与风机档位**，**奖励**由**湿度平均绝对偏差（均匀性）与分布式设备能耗**构成，并在两种出风口配置及多种干扰下对比人工/模拟/DQN/PID；正面定位其为湿度设定点与风机档位 DRL 先行工作，并写清本文在**藏品滞后与损伤约束、显热/加湿/冷盘管除湿再热能耗拆解、多气候×三档围护前沿**三方面的区别。
+  2. **补齐正文曾引用的全部 5 条文献到 bib 与核验日志**：逐条检索并核对 CrossRef / Springer / Nature / arXiv 一手出版记录后，将 **`kramer2025dynamic`**（`10.1007/978-3-031-85655-6_4`, Springer *Collection Care*, pp. 35–43）、**`kazambayev2026archival`**（`10.3390/app162010100`, *Appl. Sci.* 16(20):10100）、**`shi2026substrate`**（`10.1038/s40494-026-03116-z`, *npj Herit. Sci.* 2026-11-14 在线发表）、**`ravajiri2026dpc`**（CrossRef *IEEE TSG* `10.1109/TSG.2026.3737375` Early Access 与 `arXiv:2609.12968` 双重核对）及 **`xu2026e2edpc`**（`arXiv:2603.22104` 建筑需求响应概率约束端到端 DPC）全数补入 [paper/iscience/references.bib](../paper/iscience/references.bib) 并在 [paper/refcheck/verification_log.md](../paper/refcheck/verification_log.md) 登记（#87–#91），正文一律改为对应 bib key。
+  3. **同步修订 [docs/PLAN_ISCIENCE.md](PLAN_ISCIENCE.md) 第 4 节表**：将“博物馆 RL”一行正式修正为“Bi 等 2025（DT+AI+绿能架构，原文未使用 DQN）+ Guo 等 2023（`RH-rainbow` 分布式恒湿机设定点与风机档位 DRL）”并写明与本研究的区别。
+
+### 2026-11-19 · claude · main（审查 PR #13、#14、#15）
+- **PR #13（S1.1b）通过并合并**：审查者直接打开 Rode 等 2005 报告 PDF，核对 Table 3-5 与 Table 4-1 的数值和分级，与 PR 一致；手算推导式一致；`pytest tests` 64 通过、3 跳过。合并前在分支上解决了 `TASKS.md` 状态表冲突。
+- **PR #14（S1.2）退回**：模型本身符合任务卡，F0 达标率很高。退回原因有三：新风量（每人 4.72 L/s）没有出处，ASHRAE 62.1 博物馆为 3.8 L/s；B 层新增了机械新风而 A 层没有，S1.3 辨识会出错；输出只有含新风的 Supply Air 负荷。另外，B 层湿容倍数没有时间常数，已在 S1.3 卡里写明湿缓冲参数不辨识。
+- **PR #15（S5.1）退回**：纠正 Bi 等 2025 的错误是对的，审查者已核对出版方页面。退回原因有三：Guo 等 2023 的方法描述与出版记录不符（实为 DRL 调恒湿机的湿度设定点和风机档位，与本文更接近）；正文引的 5 条文献没进 bib，其中 2 条审查者没找到；`PLAN_ISCIENCE.md` 第 4 节尚未同步修正。
+
+### 2026-11-18 · antigravity · `antigravity/S5.1-related-work`（S5.1 初版提交）
+- **完成**：逐条核实 `docs/PLAN_ISCIENCE.md` 第 4 节表全部 7 条研究线并完成 2023–2026 年系统检索，产出 [docs/RELATED_WORK.md](RELATED_WORK.md)；同时将新核实的 10 篇文献补入 [paper/iscience/references.bib](../paper/iscience/references.bib) 并延续登记于 [paper/refcheck/verification_log.md](../paper/refcheck/verification_log.md)。
+
+### 2026-11-18 · antigravity · `antigravity/S1.1b-moisture-buffer`（S1.1b 完成待审查）
+- **完成**：按 `docs/code_reviews/PR12_S1.1.md` 与 `docs/TASKS.md` S1.1b 要求完成湿缓冲容量重新标定与平滑近似偏差定量登记：
+  - **原文核实与 Bib 登记**：从 DTU Orbit 直接下载并逐页核对 Rode (Ed.) 等（2005）*Moisture Buffering of Building Materials* PDF（封面印号 `BYG·DTU R-126`，DTU Orbit 元数据作 `R-127`，ISBN `87-7877-195-1`）11 位编著者名单、Sec. 3.3（p. 28, `8/16 h` NORDTEST 周期）、Table 3-5（p. 31 多实验室 Round Robin 实测 `MBV_practical`）与 Table 4-1（p. 38 分级），补入 [paper/iscience/references.bib](../paper/iscience/references.bib)（`rode2005moisture`）并登记于 [paper/refcheck/verification_log.md](../paper/refcheck/verification_log.md)。
+  - **物理推导与三档配置更新**：按五区暴露室内表面积 $A_{\text{eff},i}$（外非透明墙+内隔墙+顶棚：`231.11 / 113.99 / 229.03 / 113.99 / 331.29 m²`）与 $\tau_b = 8.0\text{ h}$、20 °C 湿容斜率 $\kappa_W = 1.4659\times 10^{-4}\;\text{kg}_v/(\text{kg}_{da}\cdot\%\mathrm{RH})$ 重新标定 [configs/building_modern.yaml](../configs/building_modern.yaml)（`MBV=0.50`, `M_b=615.1–1787.7 kg`）、[configs/building_retrofitted.yaml](../configs/building_retrofitted.yaml)（`MBV=0.76` 取 Table 3-5 灰泥轻骨料均值, `M_b=935.0–2717.3 kg`）与 [configs/building_historic.yaml](../configs/building_historic.yaml)（`MBV=1.16` 取 Table 3-5 未涂覆云杉板均值, `M_b=1427.0–4147.4 kg`）。
+  - **代码与敏感性工具**：在 [src/museum_v2/rom.py](../src/museum_v2/rom.py) 与 [src/museum_v2/__init__.py](../src/museum_v2/__init__.py) 保留 S1.1 原始弱缓冲取值 `weak_m_buffer_kg`（供 S4.4 下限敏感性，新增 `make_weak_buffer_config`、`scale_moisture_buffer` 与 `with_smooth_betas`），并补充 PR #12 审查建议的 `+ 2.0e-4` 防零除注释；在 [docs/MODEL.md](../docs/MODEL.md) 补全推导式、平滑偏差对照表（总电耗偏高 `+0.30%–+0.70%`）及等温蒸汽/加湿容量饱和说明；在 [tests/test_rom.py](../tests/test_rom.py) 新增 MBV 推导一致性、RH 短波抑制与近硬切换校验。
+- **验证**：在计算主机沙盒全量运行：`.venv` 下 `60 passed, 3 skipped`；单核 PyTorch 环境下 **`63 passed in 60.77s`（0 skipped）**；实测标定后无空调南展厅逐时 $|\Delta \mathrm{RH}|$ 95 分位下降 `31.1%–54.8%`。
 
 ### 2026-11-18 · claude · main（审查并合并 PR #12）
 - **完成**：审查并合并 PR #12（S1.1 A 层降阶模型），六项审查要点全部符合。审查者独立重算：湿空气函数对 ASHRAE 表最大偏差 0.25%；按 `MODEL.md` 方程另写的 20 维全矩阵后向欧拉与 Schur 实现偏差 2e-14 °C；四个能耗分项全年都大于 0。本机无 PyTorch，梯度和测速以作者结果为准。

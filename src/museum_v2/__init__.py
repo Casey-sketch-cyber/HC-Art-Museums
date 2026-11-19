@@ -81,6 +81,9 @@ from .rom import (
     load_building_config,
     load_building_tier,
     make_adiabatic_config,
+    make_weak_buffer_config,
+    scale_moisture_buffer,
+    with_smooth_betas,
 )
 
 __all__ = [
@@ -144,6 +147,7 @@ __all__ = [
     "load_object_specs",
     "load_objects_config",
     "make_adiabatic_config",
+    "make_weak_buffer_config",
     "martens_t95_to_tau",
     "mechanical_strain_risk",
     "mechanical_strain_vjp_numpy",
@@ -155,7 +159,9 @@ __all__ = [
     "proofed_fluctuation_risk",
     "rh_from_temp_w",
     "saturation_vapor_pressure",
+    "scale_moisture_buffer",
     "sedlbauer_lim_rh",
     "vtt_critical_rh",
+    "with_smooth_betas",
     "wood_equilibrium_strain",
 ]

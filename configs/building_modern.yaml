@@ -27,14 +27,19 @@ envelope:
   infiltration_ach_design: 0.22  # Airtight modern museum design infiltration [1/h] (assumption for modern sealed gallery)
   interzone_air_exchange_ach: 0.35 # Doorway/portal air mixing between adjacent zones [1/h of smaller zone volume] (assumption)
   thermal_mass_multiplier: 1.0  # Baseline modern concrete slab + gypsum partition thermal capacitance
-  moisture_buffer_multiplier: 1.0 # Baseline interior drywall/paint/collection hygroscopic buffer
+  moisture_buffer_multiplier: 1.0 # Baseline interior painted gypsum/concrete MBV ratio (0.50 / 0.50)
+  effective_mbv_g_m2_rh: 0.50   # Rode et al. (2005) Table 3-5 & 4-1: painted gypsum (0.64 raw) & concrete (0.38) composite
 
 provenance:
   geometry_and_epjson_u: "src/museum/assets/5ZoneAutoDXVAV_multizone.epJSON"
   envelope_and_infiltration_tier: "assumption (modern purpose-built museum archetype grounded in epJSON WALL-1/ROOF-1)"
   hvac_efficiencies: "assumption (typical air-cooled chiller COP + resistance reheat/steam humidifier)"
   interzone_doorway_airflow: "assumption (symmetric doorway air mixing across adjacent gallery-lobby boundaries)"
-  thermal_and_moisture_capacitance: "assumption (representative concrete slab + gypsum interior + passive moisture buffer)"
+  thermal_capacitance: "assumption (representative concrete slab + gypsum interior thermal capacitance)"
+  moisture_buffering: >
+    Calibrated from exposed interior wall + partition + ceiling surface area x effective MBV
+    using Rode (Ed.) et al. (2005), BYG-DTU Report R-126, Table 3-5 (p. 31) and Table 4-1 (p. 38),
+    with 8 h NORDTEST cycle time constant tau_buffer_h = 8.0 h (Sec. 3.3, p. 28).
 
 hvac:
   cop_cooling: 3.2              # Rated chiller + pump seasonal effective COP [W_th / W_e] (assumption)
@@ -66,8 +71,10 @@ zones:
     design_equip_w: 1056.0      # From epJSON ElectricEquipment
     h_am_w_k: 950.0             # Convective air-to-thermal-mass coupling [W/K] (~3.8 W/(m2*K) * 250 m2 interior area, assumption)
     c_mass_j_k: 1.85e7          # Interior slab + wall half-thickness effective capacitance [J/K] (assumption)
-    m_buffer_kg: 120.0          # Effective active hygroscopic air-equivalent mass [kg_da] (assumption)
-    tau_buffer_h: 8.0           # Characteristic moisture buffer exchange time constant [h] (assumption)
+    hygroscopic_area_m2: 231.11 # ext_wall_opaque (51.39) + partitions (80.56) + ceiling (99.16)
+    m_buffer_kg: 1247.1         # MBV=0.50 g/(m2*%RH), tau=8h -> A*MBV*1e-3 / ((1-e^-1)*1.4659e-4)
+    tau_buffer_h: 8.0           # NORDTEST 8 h moisture uptake cycle characteristic time (Rode et al. 2005 Sec. 3.3)
+    weak_m_buffer_kg: 120.0     # Preserved S1.1 weak-buffer lower bound for S4.4 sensitivity
 
   - name: SPACE2-1
     label: West_Gallery
@@ -82,8 +89,10 @@ zones:
     design_equip_w: 456.0       # From epJSON ElectricEquipment
     h_am_w_k: 450.0
     c_mass_j_k: 8.20e6
-    m_buffer_kg: 52.0
+    hygroscopic_area_m2: 113.99 # 27.36 + 43.90 + 42.73
+    m_buffer_kg: 615.1
     tau_buffer_h: 8.0
+    weak_m_buffer_kg: 52.0
 
   - name: SPACE3-1
     label: North_Gallery
@@ -98,8 +107,10 @@ zones:
     design_equip_w: 1056.0      # From epJSON ElectricEquipment
     h_am_w_k: 950.0
     c_mass_j_k: 1.82e7
-    m_buffer_kg: 118.0
+    hygroscopic_area_m2: 229.03 # 52.35 + 80.20 + 96.48
+    m_buffer_kg: 1235.9
     tau_buffer_h: 8.0
+    weak_m_buffer_kg: 118.0
 
   - name: SPACE4-1
     label: East_Gallery
@@ -114,8 +125,10 @@ zones:
     design_equip_w: 456.0       # From epJSON ElectricEquipment
     h_am_w_k: 450.0
     c_mass_j_k: 8.20e6
-    m_buffer_kg: 52.0
+    hygroscopic_area_m2: 113.99 # 27.36 + 43.90 + 42.73
+    m_buffer_kg: 615.1
     tau_buffer_h: 8.0
+    weak_m_buffer_kg: 52.0
 
   - name: SPACE5-1
     label: Core_Lobby
@@ -130,8 +143,10 @@ zones:
     design_equip_w: 1976.0      # From epJSON ElectricEquipment
     h_am_w_k: 1650.0
     c_mass_j_k: 3.30e7
-    m_buffer_kg: 220.0
+    hygroscopic_area_m2: 331.29 # 0.0 + 148.80 + 182.49
+    m_buffer_kg: 1787.7
     tau_buffer_h: 8.0
+    weak_m_buffer_kg: 220.0
 
 interzone_partitions:
   # Exact interior partition surface areas [m2] extracted from 5ZoneAutoDXVAV_multizone.epJSON

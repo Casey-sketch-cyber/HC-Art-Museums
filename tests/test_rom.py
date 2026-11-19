@@ -14,9 +14,12 @@ from src.museum_v2 import (
     humidity_ratio_from_temp_rh,
     load_building_tier,
     make_adiabatic_config,
+    make_weak_buffer_config,
     moist_air_enthalpy_j_per_kg,
     rh_from_temp_w,
     saturation_vapor_pressure,
+    scale_moisture_buffer,
+    with_smooth_betas,
 )
 
 try:
@@ -570,3 +573,77 @@ def test_torch_numpy_parity_autograd_fd_and_annual_speed():
         assert torch.all(torch.isfinite(ctrl_t_c.grad))
     finally:
         torch.set_num_threads(prev_threads)
+
+
+def test_mbv_moisture_buffer_derivation_and_damping():
+    """Verify NORDTEST MBV buffer calibration parity, weak-buffer recovery, and RH damping."""
+    p_atm = 101325.0
+    p_ws20 = float(saturation_vapor_pressure(20.0))
+    dw_drh = (0.621945 * 0.01 * p_ws20 * p_atm) / ((p_atm - 0.5 * p_ws20) ** 2)
+
+    for tier_name in ("modern", "retrofitted", "historic"):
+        cfg = load_building_tier(tier_name)
+        adj_area = {z.name: 0.0 for z in cfg.zones}
+        for part in cfg.interzone_partitions:
+            adj_area[part.zone_a] += part.area_m2
+            adj_area[part.zone_b] += part.area_m2
+
+        for z in cfg.zones:
+            expected_area = z.ext_wall_opaque_m2 + adj_area[z.name] + z.roof_area_m2
+            assert abs(z.hygroscopic_area_m2 - expected_area) < 0.05
+            assert z.tau_buffer_h == 8.0
+            f8 = 1.0 - math.exp(-8.0 / z.tau_buffer_h)
+            expected_mbuf = (z.hygroscopic_area_m2 * cfg.envelope.effective_mbv_g_m2_rh * 1e-3) / (f8 * dw_drh)
+            assert abs(z.m_buffer_kg - expected_mbuf) < 0.2
+
+    mod_cfg = load_building_tier("modern")
+    weak_cfg = make_weak_buffer_config(mod_cfg)
+    assert [z.m_buffer_kg for z in weak_cfg.zones] == [120.0, 52.0, 118.0, 52.0, 220.0]
+
+    scaled = scale_moisture_buffer(mod_cfg, 0.5)
+    assert math.isclose(scaled.zones[0].m_buffer_kg, 0.5 * mod_cfg.zones[0].m_buffer_kg)
+
+    # Compare unconditioned South Gallery hourly |Delta RH| on 720-hour diurnal forcing
+    t_out, rh_out, solar, occ = _synthetic_year_forcing(n_hours=720, seed=9)
+    res_new = MuseumROM(mod_cfg).forward(
+        t_out_c=t_out, rh_out_percent=rh_out, solar_rad_w_m2=solar, occupancy_frac=occ, hvac_active=False
+    )
+    res_weak = MuseumROM(weak_cfg).forward(
+        t_out_c=t_out, rh_out_percent=rh_out, solar_rad_w_m2=solar, occupancy_frac=occ, hvac_active=False
+    )
+    drh_new = np.abs(np.diff(res_new["rh_air_percent"][24:, 0]))
+    drh_weak = np.abs(np.diff(res_weak["rh_air_percent"][24:, 0]))
+    assert np.mean(drh_new) < 0.6 * np.mean(drh_weak)
+    assert np.percentile(drh_new, 95) < 0.65 * np.percentile(drh_weak, 95)
+
+
+def test_smooth_beta_near_hard_switching_consistency():
+    """Smooth deadband vs near-hard-switching (beta_t=200, beta_w=2e5) stays tightly bounded on total power."""
+    cfg_smooth = load_building_tier("modern")
+    cfg_sharp = with_smooth_betas(cfg_smooth, 200.0, 200000.0)
+    t_out, rh_out, solar, occ = _synthetic_year_forcing(n_hours=720, seed=11)
+
+    out_s = MuseumROM(cfg_smooth).forward(
+        t_out_c=t_out,
+        rh_out_percent=rh_out,
+        solar_rad_w_m2=solar,
+        occupancy_frac=occ,
+        t_heat_sp_c=20.0,
+        t_cool_sp_c=22.0,
+        rh_hum_sp_percent=45.0,
+        rh_dehum_sp_percent=55.0,
+    )
+    out_h = MuseumROM(cfg_sharp).forward(
+        t_out_c=t_out,
+        rh_out_percent=rh_out,
+        solar_rad_w_m2=solar,
+        occupancy_frac=occ,
+        t_heat_sp_c=20.0,
+        t_cool_sp_c=22.0,
+        rh_hum_sp_percent=45.0,
+        rh_dehum_sp_percent=55.0,
+    )
+    e_s = float(np.sum(out_s["total_elec_kwh"]))
+    e_h = float(np.sum(out_h["total_elec_kwh"]))
+    assert abs(e_s - e_h) / max(e_h, 1.0) < 0.02
+

@@ -28,14 +28,19 @@ envelope:
   infiltration_ach_design: 1.00 # Assumption: leaky historic fenestration & envelope (~1.0 ACH)
   interzone_air_exchange_ach: 0.60 # Assumption: high open-doorway air mixing between historic rooms
   thermal_mass_multiplier: 3.0  # Assumption: heavyweight historic masonry (~3x modern concrete/drywall effective mass)
-  moisture_buffer_multiplier: 2.2 # Assumption: thick lime plaster, unpainted wood paneling, textiles
+  moisture_buffer_multiplier: 2.32 # Effective MBV ratio relative to modern baseline (1.16 / 0.50)
+  effective_mbv_g_m2_rh: 1.16   # Rode et al. (2005) Table 3-5: untreated spruce boards 3-lab mean (1.16), Good class
 
 provenance:
   geometry_and_partitions: "src/museum/assets/5ZoneAutoDXVAV_multizone.epJSON (common 5-zone topology)"
   envelope_and_infiltration_tier: "assumption (uninsulated heavyweight historic masonry museum archetype)"
   hvac_efficiencies: "assumption (older/constrained heritage HVAC plant added to historic shell)"
   interzone_doorway_airflow: "assumption (symmetric open-portal air mixing)"
-  thermal_and_moisture_capacitance: "assumption (3.0x thermal mass and 2.2x moisture buffer over modern baseline)"
+  thermal_capacitance: "assumption (3.0x thermal mass over modern baseline)"
+  moisture_buffering: >
+    Calibrated from exposed interior wall + partition + ceiling surface area x effective MBV
+    using Rode (Ed.) et al. (2005), BYG-DTU Report R-126, Table 3-5 (p. 31) and Table 4-1 (p. 38),
+    with 8 h NORDTEST cycle time constant tau_buffer_h = 8.0 h (Sec. 3.3, p. 28).
 
 hvac:
   cop_cooling: 2.6              # Older or space-constrained DX/chiller retrofit COP (assumption)
@@ -67,8 +72,10 @@ zones:
     design_equip_w: 1056.0
     h_am_w_k: 1200.0
     c_mass_j_k: 5.55e7          # 3.0 * 1.85e7
-    m_buffer_kg: 264.0          # 2.2 * 120.0
-    tau_buffer_h: 12.0
+    hygroscopic_area_m2: 231.11
+    m_buffer_kg: 2893.2         # MBV=1.16 g/(m2*%RH), tau=8h
+    tau_buffer_h: 8.0
+    weak_m_buffer_kg: 264.0
 
   - name: SPACE2-1
     label: West_Gallery
@@ -83,8 +90,10 @@ zones:
     design_equip_w: 456.0
     h_am_w_k: 560.0
     c_mass_j_k: 2.46e7
-    m_buffer_kg: 114.4
-    tau_buffer_h: 12.0
+    hygroscopic_area_m2: 113.99
+    m_buffer_kg: 1427.0
+    tau_buffer_h: 8.0
+    weak_m_buffer_kg: 114.4
 
   - name: SPACE3-1
     label: North_Gallery
@@ -99,8 +108,10 @@ zones:
     design_equip_w: 1056.0
     h_am_w_k: 1200.0
     c_mass_j_k: 5.46e7
-    m_buffer_kg: 259.6
-    tau_buffer_h: 12.0
+    hygroscopic_area_m2: 229.03
+    m_buffer_kg: 2867.2
+    tau_buffer_h: 8.0
+    weak_m_buffer_kg: 259.6
 
   - name: SPACE4-1
     label: East_Gallery
@@ -115,8 +126,10 @@ zones:
     design_equip_w: 456.0
     h_am_w_k: 560.0
     c_mass_j_k: 2.46e7
-    m_buffer_kg: 114.4
-    tau_buffer_h: 12.0
+    hygroscopic_area_m2: 113.99
+    m_buffer_kg: 1427.0
+    tau_buffer_h: 8.0
+    weak_m_buffer_kg: 114.4
 
   - name: SPACE5-1
     label: Core_Lobby
@@ -131,8 +144,10 @@ zones:
     design_equip_w: 1976.0
     h_am_w_k: 2100.0
     c_mass_j_k: 9.90e7
-    m_buffer_kg: 484.0
-    tau_buffer_h: 12.0
+    hygroscopic_area_m2: 331.29
+    m_buffer_kg: 4147.4
+    tau_buffer_h: 8.0
+    weak_m_buffer_kg: 484.0
 
 interzone_partitions:
   - zones: [SPACE1-1, SPACE2-1]
