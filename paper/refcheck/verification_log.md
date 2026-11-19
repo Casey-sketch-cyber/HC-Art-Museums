@@ -2,7 +2,7 @@
 
 - **核验日期**：2026-11-16
 - **输入旧库**：`paper/references.bib`（共 49 条，归档文件未改动）
-- **输出新库**：`paper/iscience/references.bib`（共 75 条：含旧库经核实与修正后的 49 条 + 按 `docs/TASKS.md` S0.3 与 `docs/PLAN_ISCIENCE.md` 补入并核实的 26 条）
+- **输出新库**：`paper/iscience/references.bib`（初始 S0.3 共 75 条：含旧库经核实与修正后的 49 条 + 补入 26 条；S1.1b 新增 `rode2005moisture` 至 76 条；S5.1 核实并增补 15 条至 91 条，表 2 已逐条延续登记）
 - **核验方式**：
   1. 含 DOI 的期刊/会议论文、专著与学位论文：直接请求 CrossRef REST API（`https://api.crossref.org/works/<DOI>`）、DataCite API（`https://api.datacite.org/dois/<DOI>`）或 `doi.org` Handle API（`https://doi.org/api/handles/<DOI>`），逐字比对全部作者姓名、标题、刊名、卷、期、页码/文章号与正式出版年份。
   2. 无 DOI 的机器学习会议/期刊论文：直接抓取官方出版页（PMLR `proceedings.mlr.press`、JMLR `jmlr.org`、NeurIPS `proceedings.neurips.cc`、arXiv API `export.arxiv.org`）的 `citation_*` 元数据核对。
@@ -110,6 +110,21 @@
 | 74 | `geasalim2024cabildo` | S2.1 公开数据集 D3 数据记录 | `10.5281/zenodo.13685667` | Zenodo API 直接解析 | 2026-11-16 | **新增已核实**（Gea Salim, C. M., Zenodo, 2024） |
 | 75 | `boterovalencia2022dataset` | S2.1 公开数据集 D4 配套数据论文 | `10.3390/data7060081` | CrossRef API 直接解析 | 2026-11-16 | **新增已核实**（Botero-Valencia, Castano-Londono, Marquez-Viloria, *Data* 7(6):81, 2022） |
 | 76 | `rode2005moisture` | S1.1b 湿缓冲 MBV 定义、分级与材料实测均值 | `https://backend.orbit.dtu.dk/ws/portalfiles/portal/2415500/byg-r126.pdf` | 下载并逐页核对 DTU Orbit 原文 PDF 封面、编著页、Table 3-5 与 Table 4-1 | 2026-11-18 | **新增已核实**（Rode, C. (Ed.) 等 11 位作者, *Moisture Buffering of Building Materials*, 封面印为 `BYG·DTU R-126`, 2005, ISBN `87-7877-195-1`, ISSN `1601-2917`; DTU Orbit 元数据作 `R-127`） |
+| 77 | `graubove2025global` | S5.1 补全 `PLAN_ISCIENCE` 第 4 节全球制图工作 | `10.1016/j.scitotenv.2024.178350` | CrossRef API + PubMed PMID 39818148 摘要核对 | 2026-11-18 | **新增已核实**（Grau-Bové, Orr, Thomas, Andrews, *Sci. Total Environ.* 963:178350, 2025；2024 年 SSRN 预印及 DOI 注册） |
+| 78 | `guo2023drl` | S5.1 系统检索：分布式恒湿机组湿度设定点与风机档位 DRL | `10.1007/s10489-022-04320-7` | CrossRef API + Springer 出版页与原文摘要逐句核对 | 2026-11-19 | **新增已核实**（Guo, Luo, Zhang, Zhang, Lai, Sun, *Applied Intelligence* 53(13):16724–16746, 2023） |
+| 79 | `califano2024fatigue` | S5.1 系统检索：2024 木质遗产累积疲劳损伤 | `10.1016/j.culher.2024.03.017` | CrossRef API 直接解析 | 2026-11-18 | **新增已核实**（Califano 等 8 人, *J. Cultural Heritage* 67:313–325, 2024） |
+| 80 | `verticchio2024bem` | S5.1 系统检索：历史建筑全建筑动态仿真综述 | `10.1016/j.buildenv.2024.111621` | CrossRef API 直接解析 + 摘要核对 | 2026-11-18 | **新增已核实**（Verticchio, Martinelli, Gigliarelli, Calcerano, *Build. Environ.* 258:111621, 2024） |
+| 81 | `tringa2025heritage` | S5.1 系统检索：2025 欧洲遗产气候风险指数预测 | `10.3390/heritage8050175` | CrossRef API + DOAJ 元数据与摘要核对 | 2026-11-18 | **新增已核实**（Tringa, Georgoulias, Akritidis, Feidas, Zanis, *Heritage* 8(5):175, 2025） |
+| 82 | `tringa2026forecast` | S5.1 系统检索：2026 德尔菲博物馆微气候 ML 预测 | `10.3390/app16126092` | CrossRef API + 原文摘要核对 | 2026-11-18 | **新增已核实**（Tringa & Kavroudakis, *Applied Sciences* 16(12):6092, 2026） |
+| 83 | `hayles2023adaptation` | S5.1 系统检索：2023 博物馆气候适应与越界规划 | `10.3390/heritage6120390` | CrossRef API + 原文摘要核对 | 2026-11-18 | **新增已核实**（Hayles, Huddleston, Chinowsky, Helman, *Heritage* 6(12):7446–7465, 2023） |
+| 84 | `schito2025church` | S5.1 跟踪：Schito 等 2025 历史教堂游客微气候波动 | `10.1016/j.culher.2025.04.017` | CrossRef API + 原文摘要核对 | 2026-11-18 | **新增已核实**（Schito, Aparicio-Fernández, Vivancos, *J. Cultural Heritage* 73:549–560, 2025） |
+| 85 | `pretzel2023toolbox` | S5.1 系统检索：2023 博物馆室内气候评估工具箱 | `10.3390/heritage6040198` | CrossRef API + 原文摘要核对 | 2026-11-18 | **新增已核实**（Pretzel, B., *Heritage* 6(4):3745–3756, 2023） |
+| 86 | `carotenuto2024specola` | S5.1 系统检索：2024 巴勒莫博物馆 EN 15757 风险评估 | `10.3390/heritage7120331` | CrossRef API + 原文摘要核对 | 2026-11-18 | **新增已核实**（Carotenuto 等 8 人, *Heritage* 7(12):7165–7187, 2024） |
+| 87 | `kramer2025dynamic` | S5.1 系统检索（PR #15 补录）：DYSECO 动态气候实装多年节能评估 | `10.1007/978-3-031-85655-6_4` | CrossRef API + Springer 章节页与摘要核对 | 2026-11-19 | **新增已核实**（Kramer, Martens, Neuhaus, *Collection Care*, Springer Proc. Archaeol. Heritage, pp. 35–43, 2025） |
+| 88 | `kazambayev2026archival` | S5.1 系统检索（PR #15 补录）：智能档案盒主被动微环境控制 | `10.3390/app162010100` | CrossRef API 直接解析 + 摘要核对 | 2026-11-19 | **新增已核实**（Kazambayev 等 8 人, *Applied Sciences* 16(20):10100, 2026） |
+| 89 | `shi2026substrate` | S5.1 系统检索（PR #15 补录）：博物馆展柜木基被动调湿显色基材 | `10.1038/s40494-026-03116-z` | CrossRef API + Nature 出版页与摘要核对 | 2026-11-19 | **新增已核实**（Shi, He, Cui, Zeng, *npj Heritage Science*, 2026-11-14 在线发表，卷期/文章号待定故以 `@misc` 收录） |
+| 90 | `ravajiri2026dpc` | S5.1 跟踪（PR #15 补录）：Drgoňa 等雨流退化端到端混合整数 DPC | `10.1109/TSG.2026.3737375` / `arXiv:2609.12968` | CrossRef API + arXiv API 双方核对 | 2026-11-19 | **新增已核实**（Ravajiri, Drgoňa, Mehrtash, Hobbs, *IEEE Trans. Smart Grid* Early Access, pp. 1–1, 2026） |
+| 91 | `xu2026e2edpc` | S5.1 系统检索（PR #15 补录）：建筑需求响应概率约束端到端 DPC | `arXiv:2603.22104` | arXiv API 元数据与摘要直接解析 | 2026-11-19 | **新增已核实**（Xu, Zhi, Zhao, Jiang, `arXiv:2603.22104`, 2026 预印本） |
 
 ---
 
