@@ -1,0 +1,102 @@
+{
+  "identified_params": {
+    "historic": {
+      "u_wall_w_m2_k": 1.154702301596295,
+      "u_roof_w_m2_k": 0.3721840202659771,
+      "u_window_w_m2_k": 5.742286675691797,
+      "u_ground_w_m2_k": 1.2824793581646732,
+      "window_shgc": 0.6898723777879573,
+      "solar_to_air_fraction": 0.40029996755257996,
+      "internal_rad_fraction": 0.45532460921737217,
+      "c_mass_scale": 0.5777491745580083,
+      "h_am_scale": 0.8753918845291092
+    },
+    "retrofitted": {
+      "u_wall_w_m2_k": 0.7466201843893087,
+      "u_roof_w_m2_k": 0.25060031840144115,
+      "u_window_w_m2_k": 2.1720841790217325,
+      "u_ground_w_m2_k": 1.5253653539075853,
+      "window_shgc": 0.4431483219192652,
+      "solar_to_air_fraction": 0.6709255855083844,
+      "internal_rad_fraction": 0.40095859364237313,
+      "c_mass_scale": 0.7702079985532189,
+      "h_am_scale": 0.9816025919436113
+    },
+    "modern": {
+      "u_wall_w_m2_k": 0.40644666988750683,
+      "u_roof_w_m2_k": 0.12740430633120958,
+      "u_window_w_m2_k": 2.7692064709267874,
+      "u_ground_w_m2_k": 2.060924412887957,
+      "window_shgc": 0.5135215667111752,
+      "solar_to_air_fraction": 0.632083457900498,
+      "internal_rad_fraction": 0.3688216472746136,
+      "c_mass_scale": 0.30249139921246776,
+      "h_am_scale": 1.1105069547153947
+    }
+  },
+  "nyc_train_metrics": {
+    "historic": {
+      "cv_rmse_percent": 22.441896615727693,
+      "nmbe_percent": -1.9258651632029775,
+      "annual_diff_percent": -1.9258651632029653,
+      "annual_a_kwh": 112091.25485810798,
+      "annual_b_kwh": 114292.37183140745,
+      "sens_cv_rmse_percent": 19.416035847797545,
+      "sens_nmbe_percent": 1.1273587157032519,
+      "lat_cv_rmse_percent": 62.59394650220562,
+      "lat_nmbe_percent": -8.988775747881563,
+      "t_rmse_c": 0.35272478493440107,
+      "rh_rmse_percent": 2.274227406391684,
+      "rh_rmse_per_zone": [
+        2.268418645601517,
+        2.2626281921867957,
+        2.245471833867888,
+        2.265765617670374,
+        2.327982903977797
+      ],
+      "passed": true
+    },
+    "retrofitted": {
+      "cv_rmse_percent": 25.560642296809377,
+      "nmbe_percent": -2.778381337972223,
+      "annual_diff_percent": -2.7783813379722253,
+      "annual_a_kwh": 65246.3679540305,
+      "annual_b_kwh": 67110.96652365656,
+      "sens_cv_rmse_percent": 24.70486410455623,
+      "sens_nmbe_percent": 0.04293307811075234,
+      "lat_cv_rmse_percent": 62.98642178934829,
+      "lat_nmbe_percent": -8.405092766433144,
+      "t_rmse_c": 0.35852997743162457,
+      "rh_rmse_percent": 2.419745264926728,
+      "rh_rmse_per_zone": [
+        2.446109455348021,
+        2.421078959388283,
+        2.4411134319088554,
+        2.4249378589656754,
+        2.364614669084606
+      ],
+      "passed": true
+    },
+    "modern": {
+      "cv_rmse_percent": 21.146393479887333,
+      "nmbe_percent": -2.718964237361636,
+      "annual_diff_percent": -2.7189642373616314,
+      "annual_a_kwh": 59764.787509403686,
+      "annual_b_kwh": 61435.18830867226,
+      "sens_cv_rmse_percent": 16.883452894572546,
+      "sens_nmbe_percent": -0.8093687419670911,
+      "lat_cv_rmse_percent": 60.008350898310994,
+      "lat_nmbe_percent": -7.2953379167001815,
+      "t_rmse_c": 0.31714197511138825,
+      "rh_rmse_percent": 2.538418075288639,
+      "rh_rmse_per_zone": [
+        2.4833964981247245,
+        2.5405684871463294,
+        2.5414905486046657,
+        2.5216134661315674,
+        2.6035315513276105
+      ],
+      "passed": true
+    }
+  }
+}

@@ -18,7 +18,7 @@ and NumPy arrays cleanly without requiring PyTorch at import time.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, fields, replace
 from pathlib import Path
 from typing import Any
 import math
@@ -90,6 +90,43 @@ def _smooth_pos_diff(a: Any, b: Any, eps: float) -> Any:
     return 0.5 * (t1 - t0)
 
 
+def _sigmoid_np(x: np.ndarray) -> np.ndarray:
+    """Numerically stable NumPy logistic sigmoid matching ``torch.sigmoid``."""
+    x_safe = np.clip(np.asarray(x, dtype=np.float64), -60.0, 60.0)
+    return 1.0 / (1.0 + np.exp(-x_safe))
+
+
+def _coupled_deadband_solve_numpy(
+    inv_mat: np.ndarray,
+    x_free: np.ndarray,
+    sp_lo: np.ndarray,
+    sp_hi: np.ndarray,
+    beta: float,
+    cap_pos: np.ndarray,
+    cap_neg: np.ndarray,
+    eps_cap: float,
+    eps_pos_sq: float,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Exact 5-zone coupled IdealLoads complementarity solve without inter-zone overshoot."""
+    diag_inv = np.diagonal(inv_mat, axis1=-2, axis2=-1)
+    eff = 1.0 / diag_inv
+    s_lo = _sigmoid_np(beta * (sp_lo - x_free))
+    s_hi = _sigmoid_np(beta * (x_free - sp_hi))
+    g = s_lo + s_hi
+    d = _softplus(sp_lo - x_free, beta=beta) - _softplus(x_free - sp_hi, beta=beta)
+    n = inv_mat.shape[-1]
+    eye = np.eye(n, dtype=np.float64)[None, :, :]
+    m_sys = eye + g[:, :, None] * (eff[:, :, None] * inv_mat - eye)
+    rhs = (g * eff * d)[:, :, None]
+    u_unc = np.linalg.solve(m_sys, rhs)[:, :, 0]
+    u_pos_raw = g * 0.5 * (u_unc + np.sqrt(u_unc * u_unc + eps_pos_sq))
+    u_neg_raw = g * 0.5 * (-u_unc + np.sqrt(u_unc * u_unc + eps_pos_sq))
+    u_pos = _smooth_cap(u_pos_raw, cap_pos, eps_cap)
+    u_neg = _smooth_cap(u_neg_raw, cap_neg, eps_cap)
+    x_next = x_free + np.einsum("bij,bj->bi", inv_mat, u_pos - u_neg)
+    return x_next, u_pos, u_neg
+
+
 @dataclass(frozen=True)
 class BuildingConstants:
     rho_air_kg_m3: float = 1.2041
@@ -133,6 +170,7 @@ class HVACConfig:
     smooth_beta_w: float
     electricity_primary_factor: float
     electricity_co2_kg_per_kwh: float
+    t_sup_cool_min_c: float | None = 13.0
 
 
 @dataclass(frozen=True)
@@ -190,6 +228,15 @@ class MuseumROMConfig:
         raise KeyError(f"Unknown zone name: {name}")
 
 
+def _coerce_numeric_dataclass(cls: type[Any], raw_map: dict[str, Any]) -> Any:
+    str_fields = {f.name for f in fields(cls) if f.name in {"name", "label"}}
+    coerced = {
+        k: (float(v) if (v is not None and k not in str_fields) else v)
+        for k, v in raw_map.items()
+    }
+    return cls(**coerced)
+
+
 def load_building_config(path: str | Path) -> MuseumROMConfig:
     """Load a building ROM YAML configuration into validated dataclasses."""
     cfg_path = Path(path)
@@ -197,10 +244,10 @@ def load_building_config(path: str | Path) -> MuseumROMConfig:
     if not isinstance(raw, dict):
         raise ValueError(f"Expected mapping in {cfg_path}")
 
-    constants = BuildingConstants(**raw["constants"])
-    envelope = EnvelopeConfig(**raw["envelope"])
-    hvac = HVACConfig(**raw["hvac"])
-    zones = tuple(ZoneConfig(**z) for z in raw["zones"])
+    constants = _coerce_numeric_dataclass(BuildingConstants, raw["constants"])
+    envelope = _coerce_numeric_dataclass(EnvelopeConfig, raw["envelope"])
+    hvac = _coerce_numeric_dataclass(HVACConfig, raw["hvac"])
+    zones = tuple(_coerce_numeric_dataclass(ZoneConfig, z) for z in raw["zones"])
     partitions = tuple(
         InterzonePartition(zone_a=p["zones"][0], zone_b=p["zones"][1], area_m2=float(p["area_m2"]))
         for p in raw.get("interzone_partitions", [])
@@ -381,6 +428,44 @@ if torch is not None:
         return 0.621945 * p_w / (pressure_pa - p_w)
 
     @torch.jit.script
+    def _torch_wsat_from_t(t_c: torch.Tensor, pressure_pa: float) -> torch.Tensor:
+        t_safe = torch.clamp(t_c, min=-80.0, max=80.0)
+        p_w = torch.clamp(610.94 * torch.exp(17.625 * t_safe / (t_safe + 243.04)), min=0.0, max=0.95 * pressure_pa)
+        return 0.621945 * p_w / (pressure_pa - p_w)
+
+    @torch.jit.script
+    def _torch_coupled_deadband_solve(
+        inv_mat: torch.Tensor,
+        eff: torch.Tensor,
+        sub_mat: torch.Tensor,
+        x_free: torch.Tensor,
+        sp_lo: torch.Tensor,
+        sp_hi: torch.Tensor,
+        beta: float,
+        cap_pos: torch.Tensor,
+        cap_neg: torch.Tensor,
+        root0_pos: torch.Tensor,
+        root0_neg: torch.Tensor,
+        eps_cap_sq: float,
+        eps_pos_sq: float,
+        eye5: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Exact 5-zone coupled IdealLoads complementarity solve using precomputed sub-matrices."""
+        s_lo = torch.sigmoid(beta * (sp_lo - x_free))
+        s_hi = torch.sigmoid(beta * (x_free - sp_hi))
+        g = s_lo + s_hi
+        d = F.softplus(sp_lo - x_free, beta, 20.0) - F.softplus(x_free - sp_hi, beta, 20.0)
+        m_sys = eye5 + g.unsqueeze(-1) * sub_mat
+        rhs = (g * eff * d).unsqueeze(-1)
+        u_unc = torch.linalg.solve(m_sys, rhs).squeeze(-1)
+        u_pos_raw = g * 0.5 * (u_unc + torch.sqrt(u_unc * u_unc + eps_pos_sq))
+        u_neg_raw = g * 0.5 * (-u_unc + torch.sqrt(u_unc * u_unc + eps_pos_sq))
+        u_pos = _torch_smooth_cap(u_pos_raw, cap_pos, root0_pos, eps_cap_sq)
+        u_neg = _torch_smooth_cap(u_neg_raw, cap_neg, root0_neg, eps_cap_sq)
+        x_next = x_free + torch.bmm(inv_mat, (u_pos - u_neg).unsqueeze(-1)).squeeze(-1)
+        return x_next, u_pos, u_neg
+
+    @torch.jit.script
     def _torch_state_rollout(
         t_a: torch.Tensor,
         t_m: torch.Tensor,
@@ -389,8 +474,15 @@ if torch is not None:
         src_t: torch.Tensor,
         src_m: torch.Tensor,
         src_w: torch.Tensor,
+        t_out: torch.Tensor,
+        w_out: torch.Tensor,
+        m_vent: torch.Tensor,
         inv_at_all: torch.Tensor,
+        eff_at_all: torch.Tensor,
+        sub_at_all: torch.Tensor,
         inv_aw_all: torch.Tensor,
+        eff_aw_all: torch.Tensor,
+        sub_aw_all: torch.Tensor,
         t_h_sp: torch.Tensor,
         t_c_sp: torch.Tensor,
         rh_h_sp: torch.Tensor,
@@ -410,8 +502,11 @@ if torch is not None:
         smooth_beta_t: float,
         smooth_beta_w: float,
         pressure_pa: float,
+        cp_air: float,
+        t_sup_cool_min_c: float,
         hvac_active: bool,
     ) -> tuple[
+        torch.Tensor,
         torch.Tensor,
         torch.Tensor,
         torch.Tensor,
@@ -426,10 +521,32 @@ if torch is not None:
     ]:
         T_len = src_t.shape[1]
         const_mat = inv_at_all.shape[1] == 1
+        const_vent = m_vent.shape[1] == 1
         inv_at0 = inv_at_all[:, 0]
+        eff_at0 = eff_at_all[:, 0]
+        sub_at0 = sub_at_all[:, 0]
         inv_aw0 = inv_aw_all[:, 0]
-        diag_at0 = torch.diagonal(inv_at0, dim1=-2, dim2=-1)
-        diag_aw0 = torch.diagonal(inv_aw0, dim1=-2, dim2=-1)
+        eff_aw0 = eff_aw_all[:, 0]
+        sub_aw0 = sub_aw_all[:, 0]
+        m_vent0 = m_vent[:, 0]
+        eye5 = torch.eye(src_t.shape[2], dtype=src_t.dtype, device=src_t.device).unsqueeze(0)
+
+        src_t_u = src_t.unbind(1)
+        src_m_u = src_m.unbind(1)
+        src_w_u = src_w.unbind(1)
+        t_out_u = t_out.unsqueeze(-1).unbind(1)
+        w_out_u = w_out.unsqueeze(-1).unbind(1)
+        t_h_sp_u = t_h_sp.unbind(1)
+        t_c_sp_u = t_c_sp.unbind(1)
+        rh_h_sp_u = rh_h_sp.unbind(1)
+        rh_d_sp_u = rh_d_sp.unbind(1)
+        m_vent_u = m_vent.unbind(1)
+        inv_at_u = inv_at_all.unbind(1)
+        eff_at_u = eff_at_all.unbind(1)
+        sub_at_u = sub_at_all.unbind(1)
+        inv_aw_u = inv_aw_all.unbind(1)
+        eff_aw_u = eff_aw_all.unbind(1)
+        sub_aw_u = sub_aw_all.unbind(1)
 
         root0_qh = torch.sqrt(q_heat_max * q_heat_max + 1.0)
         root0_qc = torch.sqrt(q_cool_max * q_cool_max + 1.0)
@@ -446,50 +563,90 @@ if torch is not None:
         q_sc_list: list[torch.Tensor] = []
         m_hu_list: list[torch.Tensor] = []
         m_de_list: list[torch.Tensor] = []
+        m_cond_list: list[torch.Tensor] = []
         w_ds_list: list[torch.Tensor] = []
 
         for t in range(T_len):
-            inv_at = inv_at0 if const_mat else inv_at_all[:, t]
-            inv_aw = inv_aw0 if const_mat else inv_aw_all[:, t]
-            diag_at = diag_at0 if const_mat else torch.diagonal(inv_at, dim1=-2, dim2=-1)
-            diag_aw = diag_aw0 if const_mat else torch.diagonal(inv_aw, dim1=-2, dim2=-1)
+            inv_at = inv_at0 if const_mat else inv_at_u[t]
+            eff_at = eff_at0 if const_mat else eff_at_u[t]
+            sub_at = sub_at0 if const_mat else sub_at_u[t]
+            inv_aw = inv_aw0 if const_mat else inv_aw_u[t]
+            eff_aw = eff_aw0 if const_mat else eff_aw_u[t]
+            sub_aw = sub_aw0 if const_mat else sub_aw_u[t]
+            m_vent_t = m_vent0 if const_vent else m_vent_u[t]
 
-            term_m = t_m * c_m_dt_over_dm + src_m[:, t]
-            r_t = t_a * c_a_dt + src_t[:, t] + h_am * term_m
+            term_m = t_m * c_m_dt_over_dm + src_m_u[t]
+            r_t = t_a * c_a_dt + src_t_u[t] + h_am * term_m
             t_a_free = torch.bmm(inv_at, r_t.unsqueeze(-1)).squeeze(-1)
 
             term_b = w_b * m_b_dt_over_db
-            r_w = w_a * m_a_dt + src_w[:, t] + k_ab * term_b
-            w_a_free = torch.bmm(inv_aw, r_w.unsqueeze(-1)).squeeze(-1)
+            r_w = w_a * m_a_dt + src_w_u[t] + k_ab * term_b
 
             if not hvac_active:
                 zeros = torch.zeros_like(t_a_free)
+                w_a_free = torch.bmm(inv_aw, r_w.unsqueeze(-1)).squeeze(-1)
                 t_a = t_a_free
                 w_a = w_a_free
                 q_sh = zeros
                 q_sc = zeros
                 m_hu = zeros
                 m_de = zeros
-                w_dehum_sp = _torch_w_from_t_rh(t_a, rh_d_sp[:, t], pressure_pa)
+                m_cond = zeros
+                w_dehum_sp = _torch_w_from_t_rh(t_a, rh_d_sp_u[t], pressure_pa)
             else:
-                c_eff = 1.0 / diag_at
-                m_eff = 1.0 / diag_aw
-                d_t_heat = F.softplus(t_h_sp[:, t] - t_a_free, smooth_beta_t, 20.0)
-                d_t_cool = F.softplus(t_a_free - t_c_sp[:, t], smooth_beta_t, 20.0)
-                q_sh = _torch_smooth_cap(c_eff * d_t_heat, q_heat_max, root0_qh, 1.0)
-                q_sc = _torch_smooth_cap(c_eff * d_t_cool, q_cool_max, root0_qc, 1.0)
-                t_a = t_a_free + torch.bmm(inv_at, (q_sh - q_sc).unsqueeze(-1)).squeeze(-1)
-
-                w_hum_sp = _torch_w_from_t_rh(t_a, rh_h_sp[:, t], pressure_pa)
-                w_dehum_sp = _torch_w_from_t_rh(t_a, rh_d_sp[:, t], pressure_pa)
-                d_w_hum = F.softplus(w_hum_sp - w_a_free, smooth_beta_w, 20.0)
-                d_w_dehum = F.softplus(w_a_free - w_dehum_sp, smooth_beta_w, 20.0)
-                m_hu = _torch_smooth_cap(m_eff * d_w_hum, m_hum_max, root0_mh, 1.0e-12)
-                m_de = _torch_smooth_cap(m_eff * d_w_dehum, m_dehum_max, root0_md, 1.0e-12)
-                w_a = torch.clamp(
-                    w_a_free + torch.bmm(inv_aw, (m_hu - m_de).unsqueeze(-1)).squeeze(-1),
-                    min=1.0e-7,
+                t_a, q_sh, q_sc = _torch_coupled_deadband_solve(
+                    inv_at,
+                    eff_at,
+                    sub_at,
+                    t_a_free,
+                    t_h_sp_u[t],
+                    t_c_sp_u[t],
+                    smooth_beta_t,
+                    q_heat_max,
+                    q_cool_max,
+                    root0_qh,
+                    root0_qc,
+                    1.0,
+                    1.0e-2,
+                    eye5,
                 )
+
+                if t_sup_cool_min_c > -100.0:
+                    q_oa_cool = m_vent_t * cp_air * (t_out_u[t] - t_a)
+                    q_zone_cool = F.softplus(q_sc - q_oa_cool, 0.02, 20.0)
+                    dt_sup_max = torch.clamp(t_a - t_sup_cool_min_c, min=0.5)
+                    m_sup_req = q_zone_cool / (cp_air * dt_sup_max)
+                    active_cool = torch.sigmoid(0.05 * (q_sc - 5.0))
+                    m_sup = torch.maximum(m_sup_req, m_vent_t * active_cool)
+                    m_ret = F.softplus(m_sup - m_vent_t, 500.0, 20.0)
+                    m_oa_coil = m_sup - m_ret
+                    t_sup = t_a - q_zone_cool / (cp_air * torch.clamp(m_sup, min=1.0e-6))
+                    w_sup_sat = _torch_wsat_from_t(t_sup, pressure_pa)
+                    w_mix = (m_oa_coil * w_out_u[t] + m_ret * w_a) / torch.clamp(m_sup, min=1.0e-6)
+                    m_cond = active_cool * m_sup * F.softplus(w_mix - w_sup_sat, smooth_beta_w, 20.0)
+                else:
+                    m_cond = torch.zeros_like(q_sc)
+
+                w_a_free = torch.bmm(inv_aw, (r_w - m_cond).unsqueeze(-1)).squeeze(-1)
+                w_hum_sp = _torch_w_from_t_rh(t_a, rh_h_sp_u[t], pressure_pa)
+                w_dehum_sp = _torch_w_from_t_rh(t_a, rh_d_sp_u[t], pressure_pa)
+                w_a_raw, m_hu, m_de = _torch_coupled_deadband_solve(
+                    inv_aw,
+                    eff_aw,
+                    sub_aw,
+                    w_a_free,
+                    w_hum_sp,
+                    w_dehum_sp,
+                    smooth_beta_w,
+                    m_hum_max,
+                    m_dehum_max,
+                    root0_mh,
+                    root0_md,
+                    1.0e-12,
+                    1.0e-14,
+                    eye5,
+                )
+                w_a = torch.clamp(w_a_raw, min=1.0e-7)
 
             t_m = alpha_m * t_a + term_m
             w_b = alpha_b * w_a + term_b
@@ -504,6 +661,7 @@ if torch is not None:
             q_sc_list.append(q_sc)
             m_hu_list.append(m_hu)
             m_de_list.append(m_de)
+            m_cond_list.append(m_cond)
             w_ds_list.append(w_dehum_sp)
 
         return (
@@ -517,8 +675,355 @@ if torch is not None:
             torch.stack(q_sc_list, dim=1),
             torch.stack(m_hu_list, dim=1),
             torch.stack(m_de_list, dim=1),
+            torch.stack(m_cond_list, dim=1),
             torch.stack(w_ds_list, dim=1),
         )
+
+    def _torch_coupled_step_vec(
+        t_a: torch.Tensor,
+        t_m: torch.Tensor,
+        w_a: torch.Tensor,
+        w_b: torch.Tensor,
+        src_t: torch.Tensor,
+        src_m: torch.Tensor,
+        src_w: torch.Tensor,
+        t_out: torch.Tensor,
+        w_out: torch.Tensor,
+        m_vent_t: torch.Tensor,
+        inv_at: torch.Tensor,
+        eff_at: torch.Tensor,
+        sub_at: torch.Tensor,
+        inv_aw: torch.Tensor,
+        eff_aw: torch.Tensor,
+        sub_aw: torch.Tensor,
+        t_h_sp: torch.Tensor,
+        t_c_sp: torch.Tensor,
+        rh_h_sp: torch.Tensor,
+        rh_d_sp: torch.Tensor,
+        c_a_dt: torch.Tensor,
+        c_m_dt_over_dm: torch.Tensor,
+        h_am: torch.Tensor,
+        alpha_m: torch.Tensor,
+        m_a_dt: torch.Tensor,
+        m_b_dt_over_db: torch.Tensor,
+        k_ab: torch.Tensor,
+        alpha_b: torch.Tensor,
+        q_heat_max: torch.Tensor,
+        q_cool_max: torch.Tensor,
+        m_hum_max: torch.Tensor,
+        m_dehum_max: torch.Tensor,
+        smooth_beta_t: float,
+        smooth_beta_w: float,
+        pressure_pa: float,
+        cp_air: float,
+        t_sup_cool_min_c: float,
+    ) -> tuple[torch.Tensor, ...]:
+        """Single vectorized coupled step over flattened batch ``M = B * T`` for exact adjoint."""
+        eye5 = torch.eye(t_a.shape[-1], dtype=t_a.dtype, device=t_a.device).unsqueeze(0)
+        root0_qh = torch.sqrt(q_heat_max * q_heat_max + 1.0)
+        root0_qc = torch.sqrt(q_cool_max * q_cool_max + 1.0)
+        root0_mh = torch.sqrt(m_hum_max * m_hum_max + 1.0e-12)
+        root0_md = torch.sqrt(m_dehum_max * m_dehum_max + 1.0e-12)
+
+        term_m = t_m * c_m_dt_over_dm + src_m
+        r_t = t_a * c_a_dt + src_t + h_am * term_m
+        t_a_free = torch.bmm(inv_at, r_t.unsqueeze(-1)).squeeze(-1)
+
+        t_a_next, q_sh, q_sc = _torch_coupled_deadband_solve(
+            inv_at,
+            eff_at,
+            sub_at,
+            t_a_free,
+            t_h_sp,
+            t_c_sp,
+            smooth_beta_t,
+            q_heat_max,
+            q_cool_max,
+            root0_qh,
+            root0_qc,
+            1.0,
+            1.0e-2,
+            eye5,
+        )
+
+        if t_sup_cool_min_c > -100.0:
+            q_oa_cool = m_vent_t * cp_air * (t_out.unsqueeze(-1) - t_a_next)
+            q_zone_cool = F.softplus(q_sc - q_oa_cool, 0.02, 20.0)
+            dt_sup_max = torch.clamp(t_a_next - t_sup_cool_min_c, min=0.5)
+            m_sup_req = q_zone_cool / (cp_air * dt_sup_max)
+            active_cool = torch.sigmoid(0.05 * (q_sc - 5.0))
+            m_sup = torch.maximum(m_sup_req, m_vent_t * active_cool)
+            m_ret = F.softplus(m_sup - m_vent_t, 500.0, 20.0)
+            m_oa_coil = m_sup - m_ret
+            t_sup = t_a_next - q_zone_cool / (cp_air * torch.clamp(m_sup, min=1.0e-6))
+            w_sup_sat = _torch_wsat_from_t(t_sup, pressure_pa)
+            w_mix = (m_oa_coil * w_out.unsqueeze(-1) + m_ret * w_a) / torch.clamp(m_sup, min=1.0e-6)
+            m_cond = active_cool * m_sup * F.softplus(w_mix - w_sup_sat, smooth_beta_w, 20.0)
+        else:
+            m_cond = torch.zeros_like(q_sc)
+
+        term_b = w_b * m_b_dt_over_db
+        r_w = w_a * m_a_dt + src_w + k_ab * term_b
+        w_a_free = torch.bmm(inv_aw, (r_w - m_cond).unsqueeze(-1)).squeeze(-1)
+        w_hum_sp = _torch_w_from_t_rh(t_a_next, rh_h_sp, pressure_pa)
+        w_dehum_sp = _torch_w_from_t_rh(t_a_next, rh_d_sp, pressure_pa)
+        w_a_raw, m_hu, m_de = _torch_coupled_deadband_solve(
+            inv_aw,
+            eff_aw,
+            sub_aw,
+            w_a_free,
+            w_hum_sp,
+            w_dehum_sp,
+            smooth_beta_w,
+            m_hum_max,
+            m_dehum_max,
+            root0_mh,
+            root0_md,
+            1.0e-12,
+            1.0e-14,
+            eye5,
+        )
+        w_a_next = torch.clamp(w_a_raw, min=1.0e-7)
+        t_m_next = alpha_m * t_a_next + term_m
+        w_b_next = alpha_b * w_a_next + term_b
+        return (
+            t_a_next,
+            t_m_next,
+            w_a_next,
+            w_b_next,
+            t_a_free,
+            w_a_free,
+            q_sh,
+            q_sc,
+            m_hu,
+            m_de,
+            m_cond,
+            w_dehum_sp,
+        )
+
+    class _MuseumRolloutFn(torch.autograd.Function):
+        """Fast nograd forward + time-parallel batched VJP backward over T-step rollout."""
+
+        @staticmethod
+        def forward(ctx: Any, *args: Any) -> tuple[torch.Tensor, ...]:
+            tensors = args[:20]
+            consts = args[20]
+            (
+                t_a0,
+                t_m0,
+                w_a0,
+                w_b0,
+                src_t,
+                src_m,
+                src_w,
+                t_out,
+                w_out,
+                m_vent_roll,
+                inv_at_all,
+                eff_at_all,
+                sub_at_all,
+                inv_aw_all,
+                eff_aw_all,
+                sub_aw_all,
+                t_h_sp,
+                t_c_sp,
+                rh_h_sp,
+                rh_d_sp,
+            ) = tensors
+            with torch.no_grad():
+                outputs = _torch_state_rollout(
+                    t_a0,
+                    t_m0,
+                    w_a0,
+                    w_b0,
+                    src_t,
+                    src_m,
+                    src_w,
+                    t_out,
+                    w_out,
+                    m_vent_roll,
+                    inv_at_all,
+                    eff_at_all,
+                    sub_at_all,
+                    inv_aw_all,
+                    eff_aw_all,
+                    sub_aw_all,
+                    t_h_sp,
+                    t_c_sp,
+                    rh_h_sp,
+                    rh_d_sp,
+                    *consts,
+                )
+            ctx.save_for_backward(*tensors, outputs[0], outputs[1], outputs[2], outputs[3])
+            ctx.consts = consts
+            return outputs
+
+        @staticmethod
+        def backward(ctx: Any, *grads_out: torch.Tensor) -> tuple[Any, ...]:
+            saved = ctx.saved_tensors
+            tensors = saved[:20]
+            t_a_all, t_m_all, w_a_all, w_b_all = saved[20:24]
+            t_a0, t_m0, w_a0, w_b0 = tensors[:4]
+            consts = ctx.consts
+            c_m_dt_over_dm = consts[1]
+            alpha_m = consts[3]
+            m_b_dt_over_db = consts[5]
+            alpha_b = consts[7]
+
+            B, T_len, N = t_a_all.shape
+            M = B * T_len
+            dtype = t_a_all.dtype
+            device = t_a_all.device
+
+            g_states = torch.cat(
+                [
+                    (grads_out[k] if grads_out[k] is not None else torch.zeros_like(t_a_all))
+                    for k in range(4)
+                ],
+                dim=-1,
+            )  # (B, T, 4*N)
+
+            with torch.enable_grad():
+                prev_ta = torch.cat([t_a0.unsqueeze(1), t_a_all[:, :-1]], dim=1).reshape(M, N).detach().requires_grad_(True)
+                prev_tm = torch.cat([t_m0.unsqueeze(1), t_m_all[:, :-1]], dim=1).reshape(M, N).detach().requires_grad_(True)
+                prev_wa = torch.cat([w_a0.unsqueeze(1), w_a_all[:, :-1]], dim=1).reshape(M, N).detach().requires_grad_(True)
+                prev_wb = torch.cat([w_b0.unsqueeze(1), w_b_all[:, :-1]], dim=1).reshape(M, N).detach().requires_grad_(True)
+
+                flat_x: list[torch.Tensor] = []
+                is_full_time: list[bool] = []
+                active_x_tensors: list[torch.Tensor] = []
+                active_x_slots: list[int] = []
+
+                for idx in range(4, 20):
+                    raw = tensors[idx]
+                    full_t = raw.shape[1] == T_len
+                    is_full_time.append(full_t)
+                    exp = raw if full_t else raw.expand((B, T_len) + raw.shape[2:])
+                    fl = exp.reshape((M,) + raw.shape[2:]).detach()
+                    if ctx.needs_input_grad[idx]:
+                        fl = fl.requires_grad_(True)
+                        active_x_tensors.append(fl)
+                        active_x_slots.append(idx - 4)
+                    flat_x.append(fl)
+
+                step_outs = _torch_coupled_step_vec(
+                    prev_ta,
+                    prev_tm,
+                    prev_wa,
+                    prev_wb,
+                    *flat_x,
+                    *consts[:-1],
+                )
+                ta_n, tm_n, wa_n, wb_n = step_outs[:4]
+                aux_outs = step_outs[4:]
+
+                # Pass 1: Auxiliary direct contributions to (prev_s, active_x)
+                active_aux_y: list[torch.Tensor] = []
+                active_aux_g: list[torch.Tensor] = []
+                for k, y_k in enumerate(aux_outs):
+                    gk = grads_out[4 + k]
+                    if gk is not None:
+                        active_aux_y.append(y_k)
+                        active_aux_g.append(gk.reshape(M, N))
+
+                dx_flat: list[torch.Tensor | None] = [None] * 16
+                if active_aux_y:
+                    aux_targets = [prev_ta, prev_tm, prev_wa, prev_wb, *active_x_tensors]
+                    aux_grads = torch.autograd.grad(
+                        active_aux_y,
+                        aux_targets,
+                        active_aux_g,
+                        retain_graph=True,
+                        allow_unused=True,
+                    )
+                    u_prev_flat = torch.cat(
+                        [
+                            (aux_grads[i] if aux_grads[i] is not None else torch.zeros((M, N), dtype=dtype, device=device))
+                            for i in range(4)
+                        ],
+                        dim=-1,
+                    ).reshape(B, T_len, 4 * N)
+                    for pos, slot in enumerate(active_x_slots):
+                        g_ax = aux_grads[4 + pos]
+                        if g_ax is not None:
+                            dx_flat[slot] = g_ax
+                else:
+                    u_prev_flat = torch.zeros((B, T_len, 4 * N), dtype=dtype, device=device)
+
+                # Pass 2: 2*N batched Jacobian of (ta_n, wa_n) wrt (prev_ta, prev_tm, prev_wa, prev_wb)
+                eye_2n = torch.eye(2 * N, dtype=dtype, device=device).unsqueeze(1).expand(2 * N, M, 2 * N)
+                j_parts = torch.autograd.grad(
+                    torch.cat([ta_n, wa_n], dim=-1),
+                    (prev_ta, prev_tm, prev_wa, prev_wb),
+                    eye_2n,
+                    is_grads_batched=True,
+                    retain_graph=bool(active_x_tensors),
+                    allow_unused=True,
+                )
+                j_cat = torch.cat(
+                    [
+                        (jp if jp is not None else torch.zeros((2 * N, M, N), dtype=dtype, device=device))
+                        for jp in j_parts
+                    ],
+                    dim=-1,
+                )  # (2*N, M, 4*N)
+                j_mats = j_cat.permute(1, 0, 2).reshape(B, T_len, 2 * N, 4 * N)
+
+                # Pass 3: Exact reverse sweep over t = T-1 .. 0
+                lam_all = torch.empty((B, T_len, 4 * N), dtype=dtype, device=device)
+                carry_s = torch.zeros((B, 4 * N), dtype=dtype, device=device)
+                for t in range(T_len - 1, -1, -1):
+                    lam_t = g_states[:, t] + carry_s
+                    lam_all[:, t] = lam_t
+                    l_ta = lam_t[:, :N]
+                    l_tm = lam_t[:, N : 2 * N]
+                    l_wa = lam_t[:, 2 * N : 3 * N]
+                    l_wb = lam_t[:, 3 * N : 4 * N]
+                    v_hat = torch.cat([l_ta + alpha_m * l_tm, l_wa + alpha_b * l_wb], dim=-1)
+                    back_s = torch.bmm(v_hat.unsqueeze(1), j_mats[:, t]).squeeze(1)
+                    back_s[:, N : 2 * N] = back_s[:, N : 2 * N] + c_m_dt_over_dm * l_tm
+                    back_s[:, 3 * N : 4 * N] = back_s[:, 3 * N : 4 * N] + m_b_dt_over_db * l_wb
+                    carry_s = back_s + u_prev_flat[:, t]
+
+                g_s0 = carry_s
+                g_ta0 = g_s0[:, :N] if ctx.needs_input_grad[0] else None
+                g_tm0 = g_s0[:, N : 2 * N] if ctx.needs_input_grad[1] else None
+                g_wa0 = g_s0[:, 2 * N : 3 * N] if ctx.needs_input_grad[2] else None
+                g_wb0 = g_s0[:, 3 * N : 4 * N] if ctx.needs_input_grad[3] else None
+
+                # Pass 4: Exact state-mediated gradients wrt active_x_tensors
+                if active_x_tensors:
+                    lam_flat = lam_all.reshape(M, 4 * N)
+                    s_grads = torch.autograd.grad(
+                        [ta_n, tm_n, wa_n, wb_n],
+                        active_x_tensors,
+                        [
+                            lam_flat[:, :N],
+                            lam_flat[:, N : 2 * N],
+                            lam_flat[:, 2 * N : 3 * N],
+                            lam_flat[:, 3 * N : 4 * N],
+                        ],
+                        allow_unused=True,
+                    )
+                    for pos, slot in enumerate(active_x_slots):
+                        gs = s_grads[pos]
+                        if gs is not None:
+                            cur = dx_flat[slot]
+                            dx_flat[slot] = gs if cur is None else (cur + gs)
+
+                gx_out: list[torch.Tensor | None] = []
+                for slot in range(16):
+                    g_fl = dx_flat[slot]
+                    if g_fl is None:
+                        gx_out.append(None)
+                    else:
+                        orig = tensors[4 + slot]
+                        g_reshaped = g_fl.reshape((B, T_len) + orig.shape[2:])
+                        if not is_full_time[slot]:
+                            g_reshaped = g_reshaped.sum(dim=1, keepdim=True)
+                        gx_out.append(g_reshaped)
+
+            return (g_ta0, g_tm0, g_wa0, g_wb0, *gx_out, None)
 
 
 class MuseumROM(_BaseModule):  # type: ignore[misc]
@@ -973,6 +1478,7 @@ class MuseumROM(_BaseModule):  # type: ignore[misc]
         q_sens_cool: Any,
         m_hum: Any,
         m_dehum: Any,
+        m_cond_coil: Any,
         w_dehum_sp: Any,
         hvac_active: bool,
         dt_hours: float,
@@ -998,11 +1504,16 @@ class MuseumROM(_BaseModule):  # type: ignore[misc]
             # Process humidity drop across the cooling coil: 2e-4 kg/kg (0.2 g/kg) floor avoids 0/0
             # singularity when w_a_free approaches w_coil while vanishing as m_dehum -> 0 and
             # changing active-dehumidification coil airflow by < ~15% only near tiny < 1 g/kg drops.
+            # Note: ONLY explicit humidistat dehumidification (m_dehum) induces coil subcooling below
+            # T_a and potential reheat; coincidental condensation (m_cond_coil) shares sensible cooling
+            # already captured in q_sens_cool and adds strictly its latent condensation enthalpy.
             delta_w_coil = _softplus(w_a_free - w_coil, beta=hv.smooth_beta_w) + 2.0e-4
             m_proc = m_dehum / delta_w_coil
             delta_t_coil = _softplus(t_a_free - t_coil, beta=hv.smooth_beta_t)
 
-            q_dehum_latent = m_dehum * latent_heat_vaporization_j_per_kg(t_coil)
+            t_cond_ref = hv.t_sup_cool_min_c if hv.t_sup_cool_min_c is not None else 13.0
+            h_fg_cond = float(latent_heat_vaporization_j_per_kg(t_cond_ref))
+            q_dehum_latent = m_dehum * latent_heat_vaporization_j_per_kg(t_coil) + m_cond_coil * h_fg_cond
             q_dehum_sens = m_proc * c.cp_air_j_kg_k * delta_t_coil
             q_dehum_coil = q_dehum_latent + q_dehum_sens
 
@@ -1037,7 +1548,9 @@ class MuseumROM(_BaseModule):  # type: ignore[misc]
             "q_sens_cool_w": q_sens_cool,
             "q_hum_w": q_hum,
             "m_hum_kg_s": m_hum,
-            "m_dehum_kg_s": m_dehum,
+            "m_dehum_kg_s": m_dehum + m_cond_coil,
+            "m_dehum_explicit_kg_s": m_dehum,
+            "m_cond_coil_kg_s": m_cond_coil,
             "m_proc_air_kg_s": m_proc,
             "t_coil_dewpoint_c": t_coil,
             "q_dehum_latent_w": q_dehum_latent,
@@ -1049,6 +1562,7 @@ class MuseumROM(_BaseModule):  # type: ignore[misc]
             "e_sens_heat_kwh": q_sens_heat * w_to_kwh,
             "e_sens_cool_kwh": q_sens_cool * w_to_kwh,
             "e_hum_kwh": q_hum * w_to_kwh,
+            "e_dehum_latent_kwh": q_dehum_latent * w_to_kwh,
             "e_dehum_coil_kwh": q_dehum_coil * w_to_kwh,
             "e_reheat_kwh": q_reheat * w_to_kwh,
             "e_cool_elec_kwh": e_cool_elec,
@@ -1189,6 +1703,7 @@ class MuseumROM(_BaseModule):  # type: ignore[misc]
             "q_sens_cool_w",
             "m_hum_kg_s",
             "m_dehum_kg_s",
+            "m_cond_coil_kg_s",
             "w_dehum_sp",
         )
         buffers = {k: np.empty((B, T, N), dtype=np.float64) for k in buf_names}
@@ -1202,12 +1717,12 @@ class MuseumROM(_BaseModule):  # type: ignore[misc]
         t_c_sp = prep["t_cool_sp"]
         rh_h_sp = prep["rh_hum_sp"]
         rh_d_sp = prep["rh_dehum_sp"]
+        hv = self.config.hvac
+        t_sup_min = float(hv.t_sup_cool_min_c) if hv.t_sup_cool_min_c is not None else -999.0
 
         for t in range(T):
             inv_at = inv_at_all[:, t]
             inv_aw = inv_aw_all[:, t]
-            diag_inv_at = diag_inv_at_all[:, t]
-            diag_inv_aw = diag_inv_aw_all[:, t]
 
             term_m = (t_m * c_m_dt + t_gnd[:, t : t + 1] * self.h_ground_np + q_mass_arr[:, t]) / d_m
             r_t = (
@@ -1225,30 +1740,65 @@ class MuseumROM(_BaseModule):  # type: ignore[misc]
                 + self.k_ab_np * term_b
                 + m_vap_arr[:, t]
             )
-            w_a_free = np.einsum("bij,bj->bi", inv_aw, r_w)
 
-            step_res = self._apply_hvac_control_step(
-                t_a_free=t_a_free,
-                w_a_free=w_a_free,
-                t_heat_sp=t_h_sp[:, t],
-                t_cool_sp=t_c_sp[:, t],
-                rh_hum_sp=rh_h_sp[:, t],
-                rh_dehum_sp=rh_d_sp[:, t],
-                diag_inv_at=diag_inv_at,
-                diag_inv_aw=diag_inv_aw,
-                inv_at=inv_at,
-                inv_aw=inv_aw,
-                pressure_pa=pressure_pa,
-                q_heat_max=self.q_heat_max_np,
-                q_cool_max=self.q_cool_max_np,
-                m_hum_max=self.m_hum_max_np,
-                m_dehum_max=self.m_dehum_max_np,
-                hvac_active=hvac_active,
-                use_torch=False,
-            )
+            if not hvac_active:
+                zeros = np.zeros_like(t_a_free)
+                w_a_free = np.einsum("bij,bj->bi", inv_aw, r_w)
+                t_a_next = t_a_free
+                w_a_next = w_a_free
+                q_sh = zeros
+                q_sc = zeros
+                m_hu = zeros
+                m_de = zeros
+                m_cond = zeros
+                w_dehum_sp = humidity_ratio_from_temp_rh(t_a_next, rh_d_sp[:, t], pressure_pa=pressure_pa)
+            else:
+                t_a_next, q_sh, q_sc = _coupled_deadband_solve_numpy(
+                    inv_at,
+                    t_a_free,
+                    t_h_sp[:, t],
+                    t_c_sp[:, t],
+                    float(hv.smooth_beta_t),
+                    self.q_heat_max_np,
+                    self.q_cool_max_np,
+                    1.0,
+                    1.0e-2,
+                )
 
-            t_a = step_res["t_a_next"]
-            w_a = step_res["w_a_next"]
+                if t_sup_min > -100.0:
+                    q_oa_cool = m_vent[:, t] * cp * (t_out[:, t : t + 1] - t_a_next)
+                    q_zone_cool = _softplus(q_sc - q_oa_cool, beta=0.02)
+                    dt_sup_max = np.maximum(t_a_next - t_sup_min, 0.5)
+                    m_sup_req = q_zone_cool / (cp * dt_sup_max)
+                    active_cool = _sigmoid_np(0.05 * (q_sc - 5.0))
+                    m_sup = np.maximum(m_sup_req, m_vent[:, t] * active_cool)
+                    m_ret = _softplus(m_sup - m_vent[:, t], beta=500.0)
+                    m_oa_coil = m_sup - m_ret
+                    t_sup = t_a_next - q_zone_cool / (cp * np.maximum(m_sup, 1.0e-6))
+                    w_sup_sat = humidity_ratio_from_temp_rh(t_sup, 100.0, pressure_pa=pressure_pa)
+                    w_mix = (m_oa_coil * w_out[:, t : t + 1] + m_ret * w_a) / np.maximum(m_sup, 1.0e-6)
+                    m_cond = active_cool * m_sup * _softplus(w_mix - w_sup_sat, beta=float(hv.smooth_beta_w))
+                else:
+                    m_cond = np.zeros_like(q_sc)
+
+                w_a_free = np.einsum("bij,bj->bi", inv_aw, r_w - m_cond)
+                w_hum_sp = humidity_ratio_from_temp_rh(t_a_next, rh_h_sp[:, t], pressure_pa=pressure_pa)
+                w_dehum_sp = humidity_ratio_from_temp_rh(t_a_next, rh_d_sp[:, t], pressure_pa=pressure_pa)
+                w_a_raw, m_hu, m_de = _coupled_deadband_solve_numpy(
+                    inv_aw,
+                    w_a_free,
+                    w_hum_sp,
+                    w_dehum_sp,
+                    float(hv.smooth_beta_w),
+                    self.m_hum_max_np,
+                    self.m_dehum_max_np,
+                    1.0e-6,
+                    1.0e-14,
+                )
+                w_a_next = np.maximum(w_a_raw, 1.0e-7)
+
+            t_a = t_a_next
+            w_a = w_a_next
             t_m = alpha_m * t_a + term_m
             w_b = alpha_b * w_a + term_b
 
@@ -1258,11 +1808,12 @@ class MuseumROM(_BaseModule):  # type: ignore[misc]
             buffers["w_buffer_kg_kg"][:, t] = w_b
             buffers["t_a_free"][:, t] = t_a_free
             buffers["w_a_free"][:, t] = w_a_free
-            buffers["q_sens_heat_w"][:, t] = step_res["q_sens_heat_w"]
-            buffers["q_sens_cool_w"][:, t] = step_res["q_sens_cool_w"]
-            buffers["m_hum_kg_s"][:, t] = step_res["m_hum_kg_s"]
-            buffers["m_dehum_kg_s"][:, t] = step_res["m_dehum_kg_s"]
-            buffers["w_dehum_sp"][:, t] = step_res["w_dehum_sp"]
+            buffers["q_sens_heat_w"][:, t] = q_sh
+            buffers["q_sens_cool_w"][:, t] = q_sc
+            buffers["m_hum_kg_s"][:, t] = m_hu
+            buffers["m_dehum_kg_s"][:, t] = m_de
+            buffers["m_cond_coil_kg_s"][:, t] = m_cond
+            buffers["w_dehum_sp"][:, t] = w_dehum_sp
 
         return self._package_outputs(
             t_air=buffers["t_air_c"],
@@ -1277,6 +1828,7 @@ class MuseumROM(_BaseModule):  # type: ignore[misc]
             q_sens_cool=buffers["q_sens_cool_w"],
             m_hum=buffers["m_hum_kg_s"],
             m_dehum=buffers["m_dehum_kg_s"],
+            m_cond_coil=buffers["m_cond_coil_kg_s"],
             w_dehum_sp=buffers["w_dehum_sp"],
             hvac_active=hvac_active,
             dt_hours=dt_hours,
@@ -1478,6 +2030,7 @@ class MuseumROM(_BaseModule):  # type: ignore[misc]
         eye = torch.eye(N, dtype=dtype, device=device)
         if constant_oa:
             m_vent0 = torch.zeros((1, 1, N), dtype=dtype, device=device) if m_vent_kg_s is None else m_vent[:1, :1, :]
+            m_vent_roll = m_vent0.expand(B, 1, N)
             m_oa_0 = m_inf_design.view(1, 1, N) + m_vent0
             m_inf_all = m_inf_design.view(1, 1, N).expand(B, T, N)
             m_oa_all = m_oa_0
@@ -1487,6 +2040,7 @@ class MuseumROM(_BaseModule):  # type: ignore[misc]
             inv_at_all = torch.linalg.inv(mat_t_const).view(1, 1, N, N).expand(B, 1, N, N)
             inv_aw_all = torch.linalg.inv(mat_w_const).view(1, 1, N, N).expand(B, 1, N, N)
         else:
+            m_vent_roll = m_vent
             m_inf_all = inf_scale.unsqueeze(-1) * m_inf_design.view(1, 1, N)
             m_oa_all = m_inf_all + m_vent
             h_oa_all = c.cp_air_j_kg_k * m_oa_all
@@ -1497,36 +2051,17 @@ class MuseumROM(_BaseModule):  # type: ignore[misc]
             inv_at_all = torch.linalg.inv(mat_t)
             inv_aw_all = torch.linalg.inv(mat_w)
 
+        eff_at_all = 1.0 / torch.diagonal(inv_at_all, dim1=-2, dim2=-1)
+        sub_at_all = eff_at_all.unsqueeze(-1) * inv_at_all - eye.view(1, 1, N, N)
+        eff_aw_all = 1.0 / torch.diagonal(inv_aw_all, dim1=-2, dim2=-1)
+        sub_aw_all = eff_aw_all.unsqueeze(-1) * inv_aw_all - eye.view(1, 1, N, N)
+
         src_m = (t_gnd.unsqueeze(-1) * h_ground.view(1, 1, N) + q_mass) / d_m.view(1, 1, N)
         src_t = t_out.unsqueeze(-1) * (h_ext.view(1, 1, N) + h_oa_all) + q_air
         src_w = w_out.unsqueeze(-1) * m_oa_all + m_vapor
 
-        (
-            t_air,
-            t_mass,
-            w_air,
-            w_buffer,
-            t_a_free,
-            w_a_free,
-            q_sens_heat,
-            q_sens_cool,
-            m_hum,
-            m_dehum,
-            w_dehum_sp,
-        ) = _torch_state_rollout(
-            t_a,
-            t_m,
-            w_a,
-            w_b,
-            src_t,
-            src_m,
-            src_w,
-            inv_at_all,
-            inv_aw_all,
-            t_h_sp,
-            t_c_sp,
-            rh_h_sp,
-            rh_d_sp,
+        t_sup_min = float(hv.t_sup_cool_min_c) if hv.t_sup_cool_min_c is not None else -999.0
+        consts = (
             c_a_dt,
             c_m_dt / d_m,
             h_am,
@@ -1542,8 +2077,50 @@ class MuseumROM(_BaseModule):  # type: ignore[misc]
             float(hv.smooth_beta_t),
             float(hv.smooth_beta_w),
             float(pressure_pa),
+            float(c.cp_air_j_kg_k),
+            t_sup_min,
             bool(hvac_active),
         )
+        tensor_args = (
+            t_a,
+            t_m,
+            w_a,
+            w_b,
+            src_t,
+            src_m,
+            src_w,
+            t_out,
+            w_out,
+            m_vent_roll,
+            inv_at_all,
+            eff_at_all,
+            sub_at_all,
+            inv_aw_all,
+            eff_aw_all,
+            sub_aw_all,
+            t_h_sp,
+            t_c_sp,
+            rh_h_sp,
+            rh_d_sp,
+        )
+        if hvac_active and torch.is_grad_enabled() and any(x.requires_grad for x in tensor_args):
+            rollout_out = _MuseumRolloutFn.apply(*tensor_args, consts)
+        else:
+            rollout_out = _torch_state_rollout(*tensor_args, *consts)
+        (
+            t_air,
+            t_mass,
+            w_air,
+            w_buffer,
+            t_a_free,
+            w_a_free,
+            q_sens_heat,
+            q_sens_cool,
+            m_hum,
+            m_dehum,
+            m_cond_coil,
+            w_dehum_sp,
+        ) = rollout_out
 
         return self._package_outputs(
             t_air=t_air,
@@ -1558,6 +2135,7 @@ class MuseumROM(_BaseModule):  # type: ignore[misc]
             q_sens_cool=q_sens_cool,
             m_hum=m_hum,
             m_dehum=m_dehum,
+            m_cond_coil=m_cond_coil,
             w_dehum_sp=w_dehum_sp,
             hvac_active=hvac_active,
             dt_hours=dt_hours,

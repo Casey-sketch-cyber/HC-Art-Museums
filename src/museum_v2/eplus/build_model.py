@@ -315,6 +315,7 @@ def _configure_per_zone_idealloads(
     ep: dict[str, Any],
     config: MuseumROMConfig,
     zone_setpoints: dict[str, tuple[float, float, float, float]],
+    hourly_zone_setpoints: dict[str, tuple[Any, Any, Any, Any]] | None = None,
 ) -> None:
     """Replace central VAV AirLoop with independent per-zone IdealLoads, Thermostat & Humidistat."""
     for legacy_key in _LEGACY_HVAC_KEYS:
@@ -350,23 +351,63 @@ def _configure_per_zone_idealloads(
         }
 
     hum_mults = compute_humidity_capacity_multipliers(config)
+    hourly_map = hourly_zone_setpoints or {}
+    file_cols: list[tuple[str, list[float]]] = []
+    sched_files = ep.setdefault("Schedule:File", {}) if hourly_map else None
 
     for idx, z in enumerate(config.zones, start=1):
-        t_h, t_c, rh_h, rh_d = zone_setpoints[z.name]
-        if t_h > t_c:
-            raise ValueError(f"{z.name}: heating setpoint {t_h} > cooling setpoint {t_c}")
-        if rh_h > rh_d:
-            raise ValueError(f"{z.name}: humidify setpoint {rh_h} > dehumidify setpoint {rh_d}")
-
         htg_sch = f"Htg-SetP-Sch-{idx}"
         clg_sch = f"Clg-SetP-Sch-{idx}"
         hum_sch = f"Hum-SetP-Sch-{idx}"
         dehum_sch = f"Dehum-SetP-Sch-{idx}"
 
-        scheds[htg_sch] = _const_compact_schedule(t_h, "Temperature")
-        scheds[clg_sch] = _const_compact_schedule(t_c, "Temperature")
-        scheds[hum_sch] = _const_compact_schedule(rh_h, "Humidity")
-        scheds[dehum_sch] = _const_compact_schedule(rh_d, "Humidity")
+        if z.name in hourly_map:
+            th_seq, tc_seq, rhh_seq, rhd_seq = hourly_map[z.name]
+            th_vals = [float(x) for x in th_seq]
+            tc_vals = [float(x) for x in tc_seq]
+            rhh_vals = [float(x) for x in rhh_seq]
+            rhd_vals = [float(x) for x in rhd_seq]
+            n_hrs = len(th_vals)
+            if not (len(tc_vals) == len(rhh_vals) == len(rhd_vals) == n_hrs) or n_hrs <= 0:
+                raise ValueError(f"{z.name}: hourly setpoint series lengths must match and be > 0.")
+            for h_i in range(n_hrs):
+                if th_vals[h_i] > tc_vals[h_i]:
+                    raise ValueError(f"{z.name} hour {h_i}: heating setpoint {th_vals[h_i]} > cooling {tc_vals[h_i]}")
+                if rhh_vals[h_i] > rhd_vals[h_i]:
+                    raise ValueError(f"{z.name} hour {h_i}: humidify {rhh_vals[h_i]} > dehumidify {rhd_vals[h_i]}")
+
+            for sch_name, limits, hdr, vals in (
+                (htg_sch, "Temperature", f"{z.name}_Htg", th_vals),
+                (clg_sch, "Temperature", f"{z.name}_Clg", tc_vals),
+                (hum_sch, "Humidity", f"{z.name}_Hum", rhh_vals),
+                (dehum_sch, "Humidity", f"{z.name}_Dehum", rhd_vals),
+            ):
+                scheds.pop(sch_name, None)
+                col_num = len(file_cols) + 1
+                file_cols.append((hdr, vals))
+                assert sched_files is not None
+                sched_files[sch_name] = {
+                    "schedule_type_limits_name": limits,
+                    "file_name": "setpoints_schedule.csv",
+                    "column_number": col_num,
+                    "rows_to_skip_at_top": 1,
+                    "number_of_hours_of_data": n_hrs,
+                    "column_separator": "Comma",
+                    "interpolate_to_timestep": "No",
+                    "minutes_per_item": 60,
+                    "adjust_schedule_for_daylight_savings": "No",
+                }
+        else:
+            t_h, t_c, rh_h, rh_d = zone_setpoints[z.name]
+            if t_h > t_c:
+                raise ValueError(f"{z.name}: heating setpoint {t_h} > cooling setpoint {t_c}")
+            if rh_h > rh_d:
+                raise ValueError(f"{z.name}: humidify setpoint {rh_h} > dehumidify setpoint {rh_d}")
+
+            scheds[htg_sch] = _const_compact_schedule(t_h, "Temperature")
+            scheds[clg_sch] = _const_compact_schedule(t_c, "Temperature")
+            scheds[hum_sch] = _const_compact_schedule(rh_h, "Humidity")
+            scheds[dehum_sch] = _const_compact_schedule(rh_d, "Humidity")
 
         dual_name = f"DualSetPoint-{idx}"
         dual_sp[dual_name] = {
@@ -477,6 +518,13 @@ def _configure_per_zone_idealloads(
             sz["design_specification_outdoor_air_object_name"] = f"SZ DSOA {zname}"
             sz["zone_load_sizing_method"] = "Sensible And Latent Load"
 
+    if file_cols:
+        n_rows = len(file_cols[0][1])
+        lines = [",".join(hdr for hdr, _ in file_cols)]
+        for r_idx in range(n_rows):
+            lines.append(",".join(f"{vals[r_idx]:.6g}" for _, vals in file_cols))
+        ep["_museum_extra_files"] = {"setpoints_schedule.csv": "\n".join(lines) + "\n"}
+
 
 def _configure_outputs(ep: dict[str, Any]) -> None:
     """Request hourly outdoor, zone state, IdealLoads sensible/latent/total energy, and infiltration."""
@@ -532,6 +580,7 @@ def build_museum_epjson(
     rh_hum_sp_percent: float = 50.0,
     rh_dehum_sp_percent: float = 50.0,
     zone_setpoints: dict[str, tuple[float, float, float, float]] | None = None,
+    hourly_zone_setpoints: dict[str, tuple[Any, Any, Any, Any]] | None = None,
     base_epjson_path: str | Path | None = None,
     output_path: str | Path | None = None,
     timestep_per_hour: int = 4,
@@ -544,9 +593,12 @@ def build_museum_epjson(
         One of ``"historic"``, ``"retrofitted"``, or ``"modern"``.
     t_heat_sp_c, t_cool_sp_c, rh_hum_sp_percent, rh_dehum_sp_percent:
         Default uniform dual setpoints applied to all 5 controlled zones unless
-        overridden by ``zone_setpoints``.
+        overridden by ``zone_setpoints`` or ``hourly_zone_setpoints``.
     zone_setpoints:
         Optional mapping ``zone_name -> (t_heat, t_cool, rh_hum, rh_dehum)``.
+    hourly_zone_setpoints:
+        Optional mapping ``zone_name -> (t_heat_seq, t_cool_seq, rh_hum_seq, rh_dehum_seq)``
+        of 8760 hourly sequences exported via ``Schedule:File``.
     """
     config = load_building_tier(tier)
     src_path = Path(base_epjson_path) if base_epjson_path is not None else DEFAULT_BASE_EPJSON
@@ -561,16 +613,25 @@ def build_museum_epjson(
             if zname not in sp_map:
                 raise KeyError(f"Unknown zone '{zname}' in zone_setpoints.")
             sp_map[zname] = tuple(float(v) for v in vals)  # type: ignore[assignment]
+    if hourly_zone_setpoints is not None:
+        for zname in hourly_zone_setpoints:
+            if zname not in sp_map:
+                raise KeyError(f"Unknown zone '{zname}' in hourly_zone_setpoints.")
 
     ep["Timestep"] = {"Timestep 1": {"number_of_timesteps_per_hour": int(timestep_per_hour)}}
     _configure_museum_schedules(ep)
     _configure_envelope_and_infiltration(ep, config)
-    _configure_per_zone_idealloads(ep, config, sp_map)
+    _configure_per_zone_idealloads(ep, config, sp_map, hourly_zone_setpoints=hourly_zone_setpoints)
     _configure_outputs(ep)
 
     if output_path is not None:
         out_p = Path(output_path)
         out_p.parent.mkdir(parents=True, exist_ok=True)
-        out_p.write_text(json.dumps(ep, indent=2), encoding="utf-8")
+        ep_to_write = dict(ep)
+        extra_files = ep_to_write.pop("_museum_extra_files", None)
+        if isinstance(extra_files, dict):
+            for fname, content in extra_files.items():
+                (out_p.parent / fname).write_text(str(content), encoding="utf-8")
+        out_p.write_text(json.dumps(ep_to_write, indent=2), encoding="utf-8")
 
     return ep

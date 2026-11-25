@@ -295,6 +295,10 @@ def _naive_scalar_reference_rollout(
     def _pos_diff(a: float, b: float, eps: float) -> float:
         return 0.5 * ((a - b) + math.sqrt((a - b) ** 2 + eps**2)) - 0.5 * (-b + math.sqrt(b**2 + eps**2))
 
+    def _sigmoid(x: float) -> float:
+        xs = max(-60.0, min(60.0, x))
+        return 1.0 / (1.0 + math.exp(-xs))
+
     for k in range(T_len):
         w_out_k = float(humidity_ratio_from_temp_rh(t_out[k], rh_out[k]))
         q_a_k = np.zeros(N)
@@ -351,46 +355,91 @@ def _naive_scalar_reference_rollout(
             b_W_full[N + i] = (rom.m_buffer_np[i] / dt) * w_b[i]
 
         sol_T_free = np.linalg.solve(A_T_full, b_T_full)
-        sol_W_free = np.linalg.solve(A_W_full, b_W_full)
         inv_T_full = np.linalg.inv(A_T_full)
         inv_W_full = np.linalg.inv(A_W_full)
 
         t_a_free = sol_T_free[:N]
-        w_a_free = sol_W_free[:N]
 
-        q_sens_net = np.zeros(N)
+        # Coupled 5-zone sensible solve on air sub-block
+        M_T = np.eye(N)
+        rhs_T = np.zeros(N)
+        g_T = np.zeros(N)
+        for i in range(N):
+            c_eff = 1.0 / inv_T_full[i, i]
+            g_T[i] = _sigmoid(hv.smooth_beta_t * (t_heat_sp - t_a_free[i])) + _sigmoid(
+                hv.smooth_beta_t * (t_a_free[i] - t_cool_sp)
+            )
+            d_i = _sp(t_heat_sp - t_a_free[i], hv.smooth_beta_t) - _sp(t_a_free[i] - t_cool_sp, hv.smooth_beta_t)
+            rhs_T[i] = g_T[i] * c_eff * d_i
+            for j in range(N):
+                M_T[i, j] += g_T[i] * (c_eff * inv_T_full[i, j] - (1.0 if i == j else 0.0))
+        q_unc = np.linalg.solve(M_T, rhs_T)
         q_sh = np.zeros(N)
         q_sc = np.zeros(N)
         for i in range(N):
-            c_eff = 1.0 / inv_T_full[i, i]
-            q_sh[i] = _cap(c_eff * _sp(t_heat_sp - t_a_free[i], hv.smooth_beta_t), rom.q_heat_max_np[i], 1.0)
-            q_sc[i] = _cap(c_eff * _sp(t_a_free[i] - t_cool_sp, hv.smooth_beta_t), rom.q_cool_max_np[i], 1.0)
-            q_sens_net[i] = q_sh[i] - q_sc[i]
+            qp_raw = g_T[i] * 0.5 * (q_unc[i] + math.sqrt(q_unc[i] ** 2 + 1.0e-2))
+            qn_raw = g_T[i] * 0.5 * (-q_unc[i] + math.sqrt(q_unc[i] ** 2 + 1.0e-2))
+            q_sh[i] = _cap(qp_raw, rom.q_heat_max_np[i], 1.0)
+            q_sc[i] = _cap(qn_raw, rom.q_cool_max_np[i], 1.0)
 
         b_T_ctrl = b_T_full.copy()
-        b_T_ctrl[:N] += q_sens_net
+        b_T_ctrl[:N] += q_sh - q_sc
         sol_T_ctrl = np.linalg.solve(A_T_full, b_T_ctrl)
         t_a_next = sol_T_ctrl[:N]
         t_m_next = sol_T_ctrl[N:]
 
-        m_net = np.zeros(N)
-        m_hu = np.zeros(N)
-        m_de = np.zeros(N)
+        # Coincidental cooling-coil condensation
+        m_cond = np.zeros(N)
+        if hv.t_sup_cool_min_c is not None:
+            for i in range(N):
+                q_oa_cool = m_vent_arr[k, i] * c.cp_air_j_kg_k * (t_out[k] - t_a_next[i])
+                q_zc = _sp(q_sc[i] - q_oa_cool, 0.02)
+                dt_max = max(t_a_next[i] - hv.t_sup_cool_min_c, 0.5)
+                act = _sigmoid(0.05 * (q_sc[i] - 5.0))
+                m_sup = max(q_zc / (c.cp_air_j_kg_k * dt_max), m_vent_arr[k, i] * act)
+                m_ret = _sp(m_sup - m_vent_arr[k, i], 500.0)
+                m_oac = m_sup - m_ret
+                t_sup = t_a_next[i] - q_zc / (c.cp_air_j_kg_k * max(m_sup, 1.0e-6))
+                w_ssat = float(humidity_ratio_from_temp_rh(t_sup, 100.0))
+                w_mix = (m_oac * w_out_k + m_ret * w_a[i]) / max(m_sup, 1.0e-6)
+                m_cond[i] = act * m_sup * _sp(w_mix - w_ssat, hv.smooth_beta_w)
+
+        b_W_free = b_W_full.copy()
+        b_W_free[:N] -= m_cond
+        w_a_free = np.linalg.solve(A_W_full, b_W_free)[:N]
+
+        M_W = np.eye(N)
+        rhs_W = np.zeros(N)
+        g_W = np.zeros(N)
         for i in range(N):
             m_eff = 1.0 / inv_W_full[i, i]
             w_h_sp = float(humidity_ratio_from_temp_rh(t_a_next[i], rh_hum_sp))
             w_d_sp = float(humidity_ratio_from_temp_rh(t_a_next[i], rh_dehum_sp))
-            m_hu[i] = _cap(m_eff * _sp(w_h_sp - w_a_free[i], hv.smooth_beta_w), rom.m_hum_max_np[i], 1e-6)
-            m_de[i] = _cap(m_eff * _sp(w_a_free[i] - w_d_sp, hv.smooth_beta_w), rom.m_dehum_max_np[i], 1e-6)
-            m_net[i] = m_hu[i] - m_de[i]
+            g_W[i] = _sigmoid(hv.smooth_beta_w * (w_h_sp - w_a_free[i])) + _sigmoid(
+                hv.smooth_beta_w * (w_a_free[i] - w_d_sp)
+            )
+            d_wi = _sp(w_h_sp - w_a_free[i], hv.smooth_beta_w) - _sp(w_a_free[i] - w_d_sp, hv.smooth_beta_w)
+            rhs_W[i] = g_W[i] * m_eff * d_wi
+            for j in range(N):
+                M_W[i, j] += g_W[i] * (m_eff * inv_W_full[i, j] - (1.0 if i == j else 0.0))
+        m_unc = np.linalg.solve(M_W, rhs_W)
+        m_hu = np.zeros(N)
+        m_de = np.zeros(N)
+        for i in range(N):
+            mp_raw = g_W[i] * 0.5 * (m_unc[i] + math.sqrt(m_unc[i] ** 2 + 1.0e-14))
+            mn_raw = g_W[i] * 0.5 * (-m_unc[i] + math.sqrt(m_unc[i] ** 2 + 1.0e-14))
+            m_hu[i] = _cap(mp_raw, rom.m_hum_max_np[i], 1e-6)
+            m_de[i] = _cap(mn_raw, rom.m_dehum_max_np[i], 1e-6)
 
-        b_W_ctrl = b_W_full.copy()
-        b_W_ctrl[:N] += m_net
+        b_W_ctrl = b_W_free.copy()
+        b_W_ctrl[:N] += m_hu - m_de
         sol_W_ctrl = np.linalg.solve(A_W_full, b_W_ctrl)
         w_a_next = np.maximum(sol_W_ctrl[:N], 1e-7)
         w_b_next = sol_W_ctrl[N:]
 
         step_elec = 0.0
+        t_cond_ref = hv.t_sup_cool_min_c if hv.t_sup_cool_min_c is not None else 13.0
+        h_fg_cond = float(2501000.0 - 2381.0 * t_cond_ref)
         for i in range(N):
             h_fg_a = float(2501000.0 - 2381.0 * t_a_next[i])
             q_hu = m_hu[i] * h_fg_a
@@ -401,7 +450,7 @@ def _naive_scalar_reference_rollout(
             m_pr = m_de[i] / dw_c
             dt_c = _sp(t_a_free[i] - t_co, hv.smooth_beta_t)
             h_fg_c = float(2501000.0 - 2381.0 * t_co)
-            q_dl = m_de[i] * h_fg_c
+            q_dl = m_de[i] * h_fg_c + m_cond[i] * h_fg_cond
             q_ds = m_pr * c.cp_air_j_kg_k * dt_c
             q_dc = q_dl + q_ds
             q_re = _pos_diff(q_ds, q_sc[i], 1.0)
@@ -686,4 +735,43 @@ def test_smooth_beta_near_hard_switching_consistency():
     e_s = float(np.sum(out_s["total_elec_kwh"]))
     e_h = float(np.sum(out_h["total_elec_kwh"]))
     assert abs(e_s - e_h) / max(e_h, 1.0) < 0.02
+
+
+def test_weather_ground_and_facade_solar_overhang():
+    """Verify epJSON monthly ground profile and South overhang attenuation on facade irradiance."""
+    from src.museum_v2 import EPWData, compute_facade_irradiance, epjson_ground_temperatures_hourly
+
+    ground = epjson_ground_temperatures_hourly()
+    assert ground.shape == (8760,)
+    assert float(np.min(ground)) > 19.0 and float(np.max(ground)) < 22.0
+
+    # Synthetic June clear-sky solstice noon: South overhang reduces direct beam on SPACE1-1
+    n = 8760
+    t_out = np.full(n, 25.0)
+    rh_out = np.full(n, 50.0)
+    patm = np.full(n, 101325.0)
+    ghi = np.full(n, 850.0)
+    dni = np.full(n, 700.0)
+    dhi = np.full(n, 150.0)
+    epw = EPWData(
+        path="synthetic.epw",
+        city="TestCity",
+        latitude_deg=40.0,
+        longitude_deg=-75.0,
+        timezone_hours=-5.0,
+        elevation_m=10.0,
+        t_out_c=t_out,
+        rh_out_percent=rh_out,
+        pressure_pa=patm,
+        ghi_w_m2=ghi,
+        dni_w_m2=dni,
+        dhi_w_m2=dhi,
+    )
+    irr_shaded = compute_facade_irradiance(epw, south_overhang_depth_m=1.30)
+    irr_unshaded = compute_facade_irradiance(epw, south_overhang_depth_m=0.0)
+    assert irr_shaded.shape == (n, 5)
+    assert np.all(irr_shaded[:, 4] == 0.0)  # unglazed interior core
+    # Midday hours (~12:00 on June 21, doy=172 -> h=171*24+12=4116)
+    assert irr_shaded[4116, 0] < irr_unshaded[4116, 0]
+    assert np.sum(irr_shaded[:, 0]) < np.sum(irr_unshaded[:, 0])
 

@@ -49,6 +49,15 @@ antigravity 按下面的顺序做：
 
 ## 工作记录
 
+### 2026-11-19 · antigravity · `antigravity/S1.3-ab-validation`（完成 Task S1.3 A/B 一致性辨识与跨气候验证）
+- **A 层物理与性能同步完善**（详见 [docs/MODEL.md](MODEL.md) 第 7 节）：
+  1. 在 [src/museum_v2/rom.py](src/museum_v2/rom.py) 将邻区耦合下的独立对角控制求解升级为五区联立互补求解（`_coupled_deadband_solve_numpy` / `_torch_coupled_deadband_solve`），并在 `HVACConfig` 新增 `t_sup_cool_min_c = 13.0 °C` 显冷盘管顺带冷凝除湿机制；新增时间并行离散伴随 `_MuseumRolloutFn`，实测单核 PyTorch 全年 8760 h × 5 区前向 `3.517 s`（`< 5 s` 门禁）、反向 `1.310 s`，有限差分梯度检验相对误差 `< 1e-3`。
+  2. 新增 [src/museum_v2/weather.py](src/museum_v2/weather.py)（并在 [src/museum_v2/__init__.py](src/museum_v2/__init__.py) 导出），实现 `parse_epw`、`epjson_ground_temperatures_hourly` 与精确对齐 `Building.north_axis = 30.0°`、`SPACE2-1/4-1` 东西立面及 `Main South Overhang` 遮阳的 `compute_facade_irradiance`。
+  3. 在 [src/museum_v2/eplus/build_model.py](src/museum_v2/eplus/build_model.py) 与 [runner.py](src/museum_v2/eplus/runner.py) 新增 `hourly_zone_setpoints`（`Schedule:File`）支持，供多工况自定义设定点仿真使用。
+- **S1.3 严格辨识与 27 组未见跨气候盲测结果（36/36 全通过）**：
+  - 编写 [scripts/v2/identify_rom.py](scripts/v2/identify_rom.py) 与 [tests/test_identify_rom.py](tests/test_identify_rom.py)，严格在 `nyc / id_rich` 上按三档独立辨识 9 项有效热工参数，**全程锁定 S1.1b 湿缓冲 `m_buffer_kg` 与 `tau_buffer_h = 8.0 h` 不予辨识**，显式传入 `museum_operating_schedules(8760, start_day_of_week="Tuesday")`，并以 A 层净负荷对照 B 层 `Supply Air` 总负荷。
+  - 在 3 个未见气候（`tampa`、`chicago`、`golden`）× 3 档围护 × 3 组未见控制序列（`F0`、`wide_deadband`、`random_perturb`）共 **27 组盲测**（及 NYC 9 组保持集）上 **27 / 27 全部达标**：逐时负荷 CV-RMSE `9.36%–29.88%`（≤ 30%）、|NMBE| 与年负荷差 `-9.13%–+4.58%`（≤ 10%）、室内 RH 逐时 RMSE `0.01%–3.95% RH`（≤ 5% RH）。结果与 `.svg` 图表见 [results_summary/S1.3/summary.md](results_summary/S1.3/summary.md)。
+
 ### 2026-11-19 · claude · main（第 2 轮审查 PR #14、#15，均合并）
 - **PR #14（S1.2）通过并合并**：新风改为 ASHRAE 62.1 博物馆取值；A 层加了新风强迫项，朴素参照测试覆盖有新风和无新风两种情形；B 层两种负荷口径并列；`MODEL.md` 6.4 节写明 A、B 结构差别。给 S1.3 留了两条提醒（显式传时间表、能耗比对用负荷），已写进任务卡。
 - **PR #15（S5.1）通过并合并**：合并前在分支上解决了 `PROGRESS.md` 冲突。Guo 2023 已按出版记录重写，5 条文献补齐。审查者核实了 arXiv:2603.22104 和 arXiv:2609.12968；后者的 IEEE TSG DOI 无法独立核实，已在 main 上从 bib 删除并在核实日志注明。
